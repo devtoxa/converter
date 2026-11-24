@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PDF HTML Viewer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --toolbar-bg: #1e1e1e;
+            --border-color: #333333;
+            --text-color: #e0e0e0;
+            --accent-color: #4dabf7;
+            --btn-hover: #2c2c2c;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Consolas', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        header {
+            background-color: var(--toolbar-bg);
+            border-bottom: 1px solid var(--border-color);
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+            z-index: 20;
+        }
+
+        .toolbar-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        #file-name {
+            font-size: 0.9rem;
+            font-weight: 600;
+            max-width: 320px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: #ffffff;
+        }
+
+        button {
+            background-color: transparent;
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+            user-select: none;
+        }
+
+        button:hover:not(:disabled) {
+            background-color: var(--btn-hover);
+            border-color: #555;
+        }
+
+        button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        input[type="number"] {
+            background-color: #121212;
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 4px 6px;
+            width: 55px;
+            text-align: center;
+            font-size: 0.85rem;
+        }
+
+        .page-info,
+        .device-label {
+            font-size: 0.82rem;
+            color: #aaa;
+        }
+
+        /* 스크롤 뷰어 영역 */
+        main {
+            flex: 1;
+            overflow: auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 24px 16px 96px;
+            position: relative;
+        }
+
+        /* 선택된 기기(PC / 태블릿 / 모바일) 프레임 */
+        .device-frame {
+            width: 100%;
+            max-width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 24px;
+            transition: max-width 0.25s ease, padding 0.25s ease, border-color 0.25s ease;
+        }
+
+        .device-frame.preset-pc {
+            max-width: 100%;
+        }
+
+        .device-frame.preset-tablet {
+            max-width: 768px;
+            padding: 18px;
+            border: 1px solid #2e2e2e;
+            border-radius: 16px;
+            background-color: #161616;
+            box-shadow: 0 10px 32px rgba(0, 0, 0, 0.5);
+        }
+
+        .device-frame.preset-mobile {
+            max-width: 390px;
+            padding: 16px 12px;
+            border: 1px solid #2e2e2e;
+            border-radius: 24px;
+            background-color: #161616;
+            box-shadow: 0 10px 32px rgba(0, 0, 0, 0.6);
+        }
+
+        /* PDF 페이지를 HTML 요소로 렌더링한 블록 */
+        .pdf-html-page {
+            position: relative;
+            background-color: #ffffff;
+            color: #111111;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.55);
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        .pdf-vector-layer {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .pdf-dom-layer {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+        }
+
+        .pdf-text-node {
+            position: absolute;
+            white-space: pre;
+            transform-origin: left bottom;
+            line-height: 1;
+            cursor: text;
+        }
+
+        /* 화면 하단 플로팅 드롭 아이콘 메뉴 (PC / 태블릿 / 모바일) */
+        .device-dock {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 30;
+            display: flex;
+            flex-direction: column-reverse;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .dock-trigger {
+            width: 46px;
+            height: 46px;
+            border-radius: 50%;
+            background-color: var(--toolbar-bg);
+            border: 1px solid #444;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.65);
+        }
+
+        .dock-trigger:hover {
+            border-color: var(--accent-color);
+            background-color: #252525;
+        }
+
+        .dock-menu {
+            display: none;
+            flex-direction: column;
+            gap: 6px;
+            background-color: var(--toolbar-bg);
+            border: 1px solid #444;
+            border-radius: 12px;
+            padding: 8px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7);
+        }
+
+        .device-dock.open .dock-menu {
+            display: flex;
+        }
+
+        .dock-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 12px;
+            border-radius: 8px;
+            border: 1px solid transparent;
+            background: transparent;
+            color: var(--text-color);
+            font-size: 0.82rem;
+            white-space: nowrap;
+        }
+
+        .dock-option:hover {
+            background-color: var(--btn-hover);
+            border-color: #444;
+        }
+
+        .dock-option.active {
+            background-color: rgba(77, 171, 247, 0.16);
+            border-color: var(--accent-color);
+            color: var(--accent-color);
+            font-weight: 600;
+        }
+
+        .dock-option svg,
+        .dock-trigger svg {
+            width: 18px;
+            height: 18px;
+            flex-shrink: 0;
+        }
+
+        #status-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #888;
+            line-height: 1.6;
+        }
+
+        #status-message code {
+            background: #1e1e1e;
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: var(--accent-color);
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <div class="toolbar-group">
+            <span id="file-name" title="파일명">path 미지정</span>
+        </div>
+
+        <div class="toolbar-group">
+            <button id="prev-page" disabled>이전</button>
+            <input type="number" id="page-num" value="1" min="1" disabled />
+            <span class="page-info">/ <span id="page-count">0</span></span>
+            <button id="next-page" disabled>다음</button>
+        </div>
+
+        <div class="toolbar-group">
+            <span class="device-label" id="current-device-label">화면: PC</span>
+            <button id="refit-btn" disabled>화면 맞춤</button>
+        </div>
+    </header>
+
+    <main id="viewer-container">
+        <div id="status-message">
+            <p>URL에 <code>?path=...</code> 파라미터를 지정해주세요.</p>
+            <p style="margin-top: 8px; font-size: 0.85rem;">
+                예시: <code>?path=/.pdf/sample.pdf</code>
+            </p>
+        </div>
+
+        <div id="device-frame" class="device-frame preset-pc"></div>
+    </main>
+
+    <!-- 화면 하단 드롭 아이콘 메뉴 -->
+    <div id="device-dock" class="device-dock">
+        <button id="dock-trigger" class="dock-trigger" title="화면 크기 선택 (PC / 태블릿 / 모바일)" aria-label="화면 크기 선택">
+            <!-- 현재 선택된 기기 아이콘 -->
+            <svg id="dock-active-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                <line x1="8" y1="21" x2="16" y2="21"></line>
+                <line x1="12" y1="17" x2="12" y2="21"></line>
+            </svg>
+        </button>
+
+        <div class="dock-menu" role="menu">
+            <button class="dock-option active" data-device="pc" role="menuitem">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                    <line x1="8" y1="21" x2="16" y2="21"></line>
+                    <line x1="12" y1="17" x2="12" y2="21"></line>
+                </svg>
+                <span>PC</span>
+            </button>
+            <button class="dock-option" data-device="tablet" role="menuitem">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect>
+                    <line x1="12" y1="18" x2="12.01" y2="18"></line>
+                </svg>
+                <span>태블릿</span>
+            </button>
+            <button class="dock-option" data-device="mobile" role="menuitem">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+                    <line x1="12" y1="18" x2="12.01" y2="18"></line>
+                </svg>
+                <span>모바일</span>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const pdfjsLib = window['pdfjs-dist/build/pdf'];
+        const OPS = pdfjsLib.OPS;
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        let pdfDoc = null;
+        let currentDevice = 'pc'; // 'pc' | 'tablet' | 'mobile'
+        let isRendering = false;
+        let resizeTimer = null;
+
+        const viewerContainer = document.getElementById('viewer-container');
+        const deviceFrame = document.getElementById('device-frame');
+        const statusMessage = document.getElementById('status-message');
+        const fileNameEl = document.getElementById('file-name');
+        const pageNumInput = document.getElementById('page-num');
+        const pageCountEl = document.getElementById('page-count');
+        const currentDeviceLabel = document.getElementById('current-device-label');
+
+        const prevBtn = document.getElementById('prev-page');
+        const nextBtn = document.getElementById('next-page');
+        const refitBtn = document.getElementById('refit-btn');
+
+        const deviceDock = document.getElementById('device-dock');
+        const dockTrigger = document.getElementById('dock-trigger');
+        const dockActiveIcon = document.getElementById('dock-active-icon');
+        const dockOptions = document.querySelectorAll('.dock-option');
+
+        function getPathParam() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('path');
+        }
+
+        function enableControls(totalPages) {
+            pageCountEl.textContent = totalPages;
+            pageNumInput.max = totalPages;
+            pageNumInput.disabled = false;
+            prevBtn.disabled = false;
+            nextBtn.disabled = false;
+            refitBtn.disabled = false;
+        }
+
+        // 현재 프레임 너비에 맞춰 PDF 페이지 스케일 계산
+        async function computeFitScale(page) {
+            const unscaledViewport = page.getViewport({ scale: 1 });
+            let targetWidth;
+
+            if (currentDevice === 'mobile') {
+                targetWidth = Math.min(390, viewerContainer.clientWidth - 32) - 24;
+            } else if (currentDevice === 'tablet') {
+                targetWidth = Math.min(768, viewerContainer.clientWidth - 32) - 36;
+            } else {
+                targetWidth = viewerContainer.clientWidth - 48;
+            }
+
+            targetWidth = Math.max(240, targetWidth);
+            return targetWidth / unscaledViewport.width;
+        }
+
+        // PDF 벡터 명령어를 SVG path로 생성
+        function buildVectorSvg(opList, viewport, scale) {
+            const svgNS = 'http://www.w3.org/2000/svg';
+            const svg = document.createElementNS(svgNS, 'svg');
+            svg.setAttribute('viewBox', `0 0 ${viewport.width} ${viewport.height}`);
+            svg.setAttribute('width', viewport.width);
+            svg.setAttribute('height', viewport.height);
+
+            const scaleMatrix = pdfjsLib.Util.transform(viewport.transform, [1, 0, 0, 1, 0, 0]);
+            let ctm = [1, 0, 0, 1, 0, 0];
+            const ctmStack = [];
+            let currentPath = '';
+            let fillColor = '#000000';
+            let strokeColor = '#000000';
+            let lineWidth = 1;
+
+            function applyPoint(x, y) {
+                const m = pdfjsLib.Util.transform(scaleMatrix, ctm);
+                return [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]];
+            }
+
+            function appendPathEl(d, fill, stroke, width) {
+                if (!d) return;
+                const pathEl = document.createElementNS(svgNS, 'path');
+                pathEl.setAttribute('d', d);
+                pathEl.setAttribute('fill', fill || 'none');
+                pathEl.setAttribute('stroke', stroke || 'none');
+                if (stroke && stroke !== 'none') {
+                    pathEl.setAttribute('stroke-width', Math.max(0.5, width));
+                }
+                svg.appendChild(pathEl);
+            }
+
+            for (let i = 0; i < opList.fnArray.length; i++) {
+                const fn = opList.fnArray[i];
+                const args = opList.argsArray[i];
+
+                if (fn === OPS.save) {
+                    ctmStack.push([...ctm]);
+                } else if (fn === OPS.restore) {
+                    if (ctmStack.length > 0) ctm = ctmStack.pop();
+                } else if (fn === OPS.transform) {
+                    ctm = pdfjsLib.Util.transform(ctm, args);
+                } else if (fn === OPS.setFillRGBColor) {
+                    fillColor = `rgb(${args[0]}, ${args[1]}, ${args[2]})`;
+                } else if (fn === OPS.setStrokeRGBColor) {
+                    strokeColor = `rgb(${args[0]}, ${args[1]}, ${args[2]})`;
+                } else if (fn === OPS.setLineWidth) {
+                    lineWidth = args[0] * scale;
+                } else if (fn === OPS.moveTo) {
+                    const [x, y] = applyPoint(args[0], args[1]);
+                    currentPath += `M ${x.toFixed(2)} ${y.toFixed(2)} `;
+                } else if (fn === OPS.lineTo) {
+                    const [x, y] = applyPoint(args[0], args[1]);
+                    currentPath += `L ${x.toFixed(2)} ${y.toFixed(2)} `;
+                } else if (fn === OPS.curveTo) {
+                    const [x1, y1] = applyPoint(args[0], args[1]);
+                    const [x2, y2] = applyPoint(args[2], args[3]);
+                    const [x3, y3] = applyPoint(args[4], args[5]);
+                    currentPath += `C ${x1.toFixed(2)} ${y1.toFixed(2)}, ${x2.toFixed(2)} ${y2.toFixed(2)}, ${x3.toFixed(2)} ${y3.toFixed(2)} `;
+                } else if (fn === OPS.rectangle) {
+                    const [x0, y0] = applyPoint(args[0], args[1]);
+                    const [x1, y1] = applyPoint(args[0] + args[2], args[1] + args[3]);
+                    const rx = Math.min(x0, x1);
+                    const ry = Math.min(y0, y1);
+                    const rw = Math.abs(x1 - x0);
+                    const rh = Math.abs(y1 - y0);
+                    currentPath += `M ${rx.toFixed(2)} ${ry.toFixed(2)} h ${rw.toFixed(2)} v ${rh.toFixed(2)} h ${(-rw).toFixed(2)} Z `;
+                } else if (fn === OPS.closePath) {
+                    currentPath += 'Z ';
+                } else if (fn === OPS.fill || fn === OPS.eoFill) {
+                    appendPathEl(currentPath.trim(), fillColor, 'none', 0);
+                    currentPath = '';
+                } else if (fn === OPS.stroke) {
+                    appendPathEl(currentPath.trim(), 'none', strokeColor, lineWidth);
+                    currentPath = '';
+                } else if (fn === OPS.fillStroke || fn === OPS.eoFillStroke) {
+                    appendPathEl(currentPath.trim(), fillColor, strokeColor, lineWidth);
+                    currentPath = '';
+                } else if (fn === OPS.endPath) {
+                    currentPath = '';
+                }
+            }
+
+            return svg;
+        }
+
+        // PDF 텍스트를 HTML span DOM으로 생성
+        function buildTextDomLayer(textContent, viewport, scale) {
+            const domLayer = document.createElement('div');
+            domLayer.className = 'pdf-dom-layer';
+
+            for (const item of (textContent.items || [])) {
+                if (!item.str) continue;
+
+                const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
+                const fontHeight = Math.hypot(tx[2], tx[3]) || Math.abs(item.height * scale) || 12;
+                const angleDeg = (Math.atan2(tx[1], tx[0]) * 180) / Math.PI;
+
+                const span = document.createElement('span');
+                span.className = 'pdf-text-node';
+                span.textContent = item.str;
+                span.style.left = `${tx[4].toFixed(2)}px`;
+                span.style.top = `${(tx[5] - fontHeight).toFixed(2)}px`;
+                span.style.fontSize = `${fontHeight.toFixed(2)}px`;
+                span.style.fontFamily = item.fontName || 'sans-serif';
+
+                if (Math.abs(angleDeg) > 0.1) {
+                    span.style.transform = `rotate(${angleDeg.toFixed(2)}deg)`;
+                }
+
+                domLayer.appendChild(span);
+            }
+
+            return domLayer;
+        }
+
+        async function renderAllPages() {
+            if (!pdfDoc || isRendering) return;
+            isRendering = true;
+
+            const activePage = parseInt(pageNumInput.value, 10) || 1;
+            deviceFrame.innerHTML = '';
+
+            try {
+                for (let num = 1; num <= pdfDoc.numPages; num++) {
+                    const page = await pdfDoc.getPage(num);
+                    const scale = await computeFitScale(page);
+                    const viewport = page.getViewport({ scale });
+
+                    const pageEl = document.createElement('section');
+                    pageEl.className = 'pdf-html-page';
+                    pageEl.dataset.pageNumber = num;
+                    pageEl.style.width = `${viewport.width}px`;
+                    pageEl.style.height = `${viewport.height}px`;
+
+                    const opList = await page.getOperatorList();
+                    const vectorWrapper = document.createElement('div');
+                    vectorWrapper.className = 'pdf-vector-layer';
+                    vectorWrapper.appendChild(buildVectorSvg(opList, viewport, scale));
+
+                    const textContent = await page.getTextContent();
+                    const domLayer = buildTextDomLayer(textContent, viewport, scale);
+
+                    pageEl.appendChild(vectorWrapper);
+                    pageEl.appendChild(domLayer);
+                    deviceFrame.appendChild(pageEl);
+                }
+
+                if (activePage > 1) {
+                    scrollToPage(activePage, 'auto');
+                }
+            } finally {
+                isRendering = false;
+            }
+        }
+
+        function setDevice(device) {
+            currentDevice = device;
+            deviceFrame.className = `device-frame preset-${device}`;
+
+            const labelMap = {
+                pc: '화면: PC',
+                tablet: '화면: 태블릿',
+                mobile: '화면: 모바일'
+            };
+            currentDeviceLabel.textContent = labelMap[device] || '화면: PC';
+
+            dockOptions.forEach(opt => {
+                const isSelected = opt.dataset.device === device;
+                opt.classList.toggle('active', isSelected);
+                if (isSelected) {
+                    const svgEl = opt.querySelector('svg');
+                    if (svgEl) {
+                        dockActiveIcon.innerHTML = svgEl.innerHTML;
+                    }
+                }
+            });
+
+            deviceDock.classList.remove('open');
+
+            if (pdfDoc) {
+                renderAllPages();
+            }
+        }
+
+        async function loadPdfFromPath(pdfPath) {
+            const displayName = decodeURIComponent(pdfPath.split('/').pop().split('?')[0] || 'document.pdf');
+            try {
+                statusMessage.style.display = 'block';
+                statusMessage.innerHTML = '<p>PDF를 HTML로 불러오는 중입니다...</p>';
+                fileNameEl.textContent = displayName;
+                fileNameEl.title = pdfPath;
+                document.title = `${displayName} - PDF HTML Viewer`;
+
+                const loadingTask = pdfjsLib.getDocument(pdfPath);
+                pdfDoc = await loadingTask.promise;
+
+                statusMessage.style.display = 'none';
+                enableControls(pdfDoc.numPages);
+                await renderAllPages();
+            } catch (err) {
+                console.error(err);
+                statusMessage.style.display = 'block';
+                statusMessage.innerHTML = `
+          <p style="color: #ff6b6b;">PDF를 불러오는 데 실패했습니다.</p>
+          <p style="font-size: 0.85rem; margin-top: 6px;"><code>${pdfPath}</code> 경로를 확인해주세요.<br>(${err.message})</p>
+        `;
+            }
+        }
+
+        function scrollToPage(num, behavior = 'smooth') {
+            const target = deviceFrame.querySelector(`.pdf-html-page[data-page-number="${num}"]`);
+            if (target) {
+                target.scrollIntoView({ behavior, block: 'start' });
+                pageNumInput.value = num;
+            }
+        }
+
+        // 하단 드롭 아이콘 토글
+        dockTrigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            deviceDock.classList.toggle('open');
+        });
+
+        dockOptions.forEach(opt => {
+            opt.addEventListener('click', (e) => {
+                e.stopPropagation();
+                setDevice(opt.dataset.device);
+            });
+        });
+
+        document.addEventListener('click', () => {
+            deviceDock.classList.remove('open');
+        });
+
+        viewerContainer.addEventListener('scroll', () => {
+            const pages = document.querySelectorAll('.pdf-html-page');
+            const containerTop = viewerContainer.getBoundingClientRect().top;
+
+            for (const page of pages) {
+                const rect = page.getBoundingClientRect();
+                if (rect.top <= containerTop + 150 && rect.bottom >= containerTop + 150) {
+                    pageNumInput.value = page.dataset.pageNumber;
+                    break;
+                }
+            }
+        });
+
+        prevBtn.addEventListener('click', () => {
+            const current = parseInt(pageNumInput.value, 10);
+            if (current > 1) scrollToPage(current - 1);
+        });
+
+        nextBtn.addEventListener('click', () => {
+            const current = parseInt(pageNumInput.value, 10);
+            if (pdfDoc && current < pdfDoc.numPages) scrollToPage(current + 1);
+        });
+
+        pageNumInput.addEventListener('change', () => {
+            if (!pdfDoc) return;
+            let val = parseInt(pageNumInput.value, 10);
+            if (isNaN(val) || val < 1) val = 1;
+            if (val > pdfDoc.numPages) val = pdfDoc.numPages;
+            scrollToPage(val);
+        });
+
+        refitBtn.addEventListener('click', () => {
+            if (pdfDoc) renderAllPages();
+        });
+
+        window.addEventListener('resize', () => {
+            if (!pdfDoc) return;
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => {
+                renderAllPages();
+            }, 150);
+        });
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const pdfPath = getPathParam();
+            if (pdfPath) {
+                loadPdfFromPath(pdfPath);
+            }
+        });
+    </script>
+</body>
+
+</html>
