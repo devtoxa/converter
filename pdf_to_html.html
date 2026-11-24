@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="ko" data-theme="light">
 
 <head>
     <meta charset="UTF-8" />
@@ -10,14 +10,38 @@
     <link href="https://fonts.googleapis.com/css2?family=Nanum+Gothic:wght@400;700&display=swap" rel="stylesheet" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
-        :root {
+        :root,
+        [data-theme="light"] {
+            --bg-color: #f4f6f8;
+            --toolbar-bg: #ffffff;
+            --border-color: #dce1e7;
+            --text-color: #1f242b;
+            --muted-text: #5f6773;
+            --accent-color: #1971c2;
+            --accent-soft: rgba(25, 113, 194, 0.12);
+            --btn-hover: #eef2f6;
+            --frame-bg: #eef1f5;
+            --frame-border: #d5dce4;
+            --page-bg: #ffffff;
+            --default-pdf-text: #111111;
+            --shadow-color: rgba(15, 23, 42, 0.12);
+            --font-nanum: 'Nanum Gothic', 'Malgun Gothic', sans-serif;
+        }
+
+        [data-theme="dark"] {
             --bg-color: #121212;
             --toolbar-bg: #1e1e1e;
             --border-color: #333333;
-            --text-color: #e0e0e0;
+            --text-color: #e6e6e6;
+            --muted-text: #a0a0a0;
             --accent-color: #4dabf7;
+            --accent-soft: rgba(77, 171, 247, 0.16);
             --btn-hover: #2c2c2c;
-            --font-nanum: 'Nanum Gothic', 'Malgun Gothic', sans-serif;
+            --frame-bg: #181818;
+            --frame-border: #2e2e2e;
+            --page-bg: #1a1a1a;
+            --default-pdf-text: #e8eaed;
+            --shadow-color: rgba(0, 0, 0, 0.6);
         }
 
         * {
@@ -34,6 +58,7 @@
             flex-direction: column;
             height: 100vh;
             overflow: hidden;
+            transition: background-color 0.2s ease, color 0.2s ease;
         }
 
         header {
@@ -46,6 +71,7 @@
             gap: 10px;
             flex-wrap: wrap;
             z-index: 20;
+            transition: background-color 0.2s ease, border-color 0.2s ease;
         }
 
         .toolbar-group {
@@ -57,15 +83,15 @@
         #file-name {
             font-size: 0.88rem;
             font-weight: 700;
-            max-width: 300px;
+            max-width: 280px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            color: #ffffff;
+            color: var(--text-color);
         }
 
         button {
-            background-color: transparent;
+            background-color: var(--toolbar-bg);
             color: var(--text-color);
             border: 1px solid var(--border-color);
             padding: 4px 9px;
@@ -79,7 +105,14 @@
 
         button:hover:not(:disabled) {
             background-color: var(--btn-hover);
-            border-color: #555;
+            border-color: var(--accent-color);
+        }
+
+        button.active {
+            background-color: var(--accent-soft);
+            border-color: var(--accent-color);
+            color: var(--accent-color);
+            font-weight: 700;
         }
 
         button:disabled {
@@ -88,7 +121,7 @@
         }
 
         input[type="number"] {
-            background-color: #121212;
+            background-color: var(--bg-color);
             color: var(--text-color);
             border: 1px solid var(--border-color);
             border-radius: 4px;
@@ -102,7 +135,7 @@
         .page-info,
         .device-label {
             font-size: 0.8rem;
-            color: #aaa;
+            color: var(--muted-text);
         }
 
         main {
@@ -122,7 +155,7 @@
             flex-direction: column;
             align-items: center;
             gap: 20px;
-            transition: max-width 0.22s ease, padding 0.22s ease;
+            transition: max-width 0.22s ease, padding 0.22s ease, background-color 0.2s ease, border-color 0.2s ease;
         }
 
         .device-frame.preset-pc {
@@ -132,29 +165,30 @@
         .device-frame.preset-tablet {
             max-width: 640px;
             padding: 12px;
-            border: 1px solid #2e2e2e;
+            border: 1px solid var(--frame-border);
             border-radius: 14px;
-            background-color: #161616;
-            box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
+            background-color: var(--frame-bg);
+            box-shadow: 0 8px 28px var(--shadow-color);
         }
 
         .device-frame.preset-mobile {
             max-width: 312px;
             padding: 10px 8px;
-            border: 1px solid #2e2e2e;
+            border: 1px solid var(--frame-border);
             border-radius: 20px;
-            background-color: #161616;
-            box-shadow: 0 8px 28px rgba(0, 0, 0, 0.6);
+            background-color: var(--frame-bg);
+            box-shadow: 0 8px 28px var(--shadow-color);
         }
 
         .pdf-html-page {
             position: relative;
-            background-color: #ffffff;
-            color: #111111;
-            box-shadow: 0 4px 18px rgba(0, 0, 0, 0.55);
+            background-color: var(--page-bg);
+            color: var(--default-pdf-text);
+            box-shadow: 0 4px 18px var(--shadow-color);
             overflow: hidden;
             flex-shrink: 0;
             font-family: var(--font-nanum);
+            transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
         }
 
         .pdf-vector-layer {
@@ -198,6 +232,7 @@
             line-height: 1;
             cursor: text;
             font-family: var(--font-nanum);
+            color: var(--default-pdf-text);
         }
 
         .device-dock {
@@ -216,18 +251,18 @@
             height: 44px;
             border-radius: 50%;
             background-color: var(--toolbar-bg);
-            border: 1px solid #444;
-            color: #ffffff;
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
             display: flex;
             align-items: center;
             justify-content: center;
             padding: 0;
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.65);
+            box-shadow: 0 6px 20px var(--shadow-color);
         }
 
         .dock-trigger:hover {
             border-color: var(--accent-color);
-            background-color: #252525;
+            background-color: var(--btn-hover);
         }
 
         .dock-menu {
@@ -235,10 +270,10 @@
             flex-direction: column;
             gap: 5px;
             background-color: var(--toolbar-bg);
-            border: 1px solid #444;
+            border: 1px solid var(--border-color);
             border-radius: 12px;
             padding: 7px;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7);
+            box-shadow: 0 8px 24px var(--shadow-color);
         }
 
         .device-dock.open .dock-menu {
@@ -260,11 +295,11 @@
 
         .dock-option:hover {
             background-color: var(--btn-hover);
-            border-color: #444;
+            border-color: var(--border-color);
         }
 
         .dock-option.active {
-            background-color: rgba(77, 171, 247, 0.16);
+            background-color: var(--accent-soft);
             border-color: var(--accent-color);
             color: var(--accent-color);
             font-weight: 700;
@@ -283,12 +318,13 @@
             left: 50%;
             transform: translate(-50%, -50%);
             text-align: center;
-            color: #888;
+            color: var(--muted-text);
             line-height: 1.6;
         }
 
         #status-message code {
-            background: #1e1e1e;
+            background: var(--toolbar-bg);
+            border: 1px solid var(--border-color);
             padding: 2px 6px;
             border-radius: 4px;
             color: var(--accent-color);
@@ -311,6 +347,7 @@
         </div>
 
         <div class="toolbar-group">
+            <button id="theme-toggle-btn" title="라이트 / 다크 모드 전환">다크 모드</button>
             <span class="device-label" id="current-device-label">PC (화면최적화)</span>
             <button id="refit-btn" disabled>화면 맞춤</button>
         </div>
@@ -374,6 +411,7 @@
         const NANUM_FONT = "'Nanum Gothic', 'Malgun Gothic', sans-serif";
 
         let pdfDoc = null;
+        let currentTheme = 'light'; // 'light' | 'dark'
         let currentDevice = 'pc';
         let isRendering = false;
         let resizeTimer = null;
@@ -386,6 +424,7 @@
         const pageCountEl = document.getElementById('page-count');
         const currentDeviceLabel = document.getElementById('current-device-label');
 
+        const themeToggleBtn = document.getElementById('theme-toggle-btn');
         const prevBtn = document.getElementById('prev-page');
         const nextBtn = document.getElementById('next-page');
         const refitBtn = document.getElementById('refit-btn');
@@ -423,6 +462,56 @@
 
             targetWidth = Math.max(200, targetWidth);
             return targetWidth / unscaledViewport.width;
+        }
+
+        // rgb(r, g, b) 문자열을 [r, g, b] 숫자로 파싱
+        function parseRgbChannels(rgbStr) {
+            if (!rgbStr) return null;
+            const match = rgbStr.match(/rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i);
+            if (!match) return null;
+            return [Number(match[1]), Number(match[2]), Number(match[3])];
+        }
+
+        // 상대 휘도(0~1) 계산
+        function getLuminance(r, g, b) {
+            const toLin = (c) => {
+                const s = Math.max(0, Math.min(255, c)) / 255;
+                return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+            };
+            return 0.2126 * toLin(r) + 0.7152 * toLin(g) + 0.0722 * toLin(b);
+        }
+
+        // 테마 및 배경(밝은 도형/표 셀 등)을 고려해 글자색 대비 보정
+        function adaptTextColorForTheme(rawColor, x, y, lightBgRects) {
+            const rgb = parseRgbChannels(rawColor);
+            if (!rgb) {
+                return currentTheme === 'dark' ? '#e8eaed' : '#111111';
+            }
+
+            const [r, g, b] = rgb;
+            const lum = getLuminance(r, g, b);
+
+            if (currentTheme === 'light') {
+                // 라이트 모드에서 지나치게 흰색/연한 회색 글자는 가독성을 위해 어둡게 보정
+                if (lum > 0.78) {
+                    return '#222222';
+                }
+                return `rgb(${r}, ${g}, ${b})`;
+            }
+
+            // 다크 모드: 글자 좌표가 밝은 사각형(표 헤더/배너/박스 등) 위에 있으면 원본 글자색 유지
+            const overLightBox = lightBgRects.some(
+                box => x >= box.left - 2 && x <= box.right + 2 && y >= box.top - 2 && y <= box.bottom + 4
+            );
+            if (overLightBox) {
+                return `rgb(${r}, ${g}, ${b})`;
+            }
+
+            // 어두운 페이지 배경 위에서는 어두운 글자(휘도 낮음)를 밝은 색으로 전환
+            if (lum < 0.25) {
+                return '#e8eaed';
+            }
+            return `rgb(${r}, ${g}, ${b})`;
         }
 
         function colorArgsToCss(args) {
@@ -552,6 +641,7 @@
             imageLayer.className = 'pdf-image-layer';
 
             const textColorHints = [];
+            const lightBgRects = [];
 
             let ctm = [1, 0, 0, 1, 0, 0];
             const ctmStack = [];
@@ -560,27 +650,71 @@
             let clipCounter = 0;
 
             let currentPath = '';
+            let pathBox = null;
             let fillColor = 'rgb(0, 0, 0)';
             let strokeColor = 'rgb(0, 0, 0)';
             let fillAlpha = 1;
             let strokeAlpha = 1;
             let lineWidth = 1;
 
+            function updatePathBox(x, y) {
+                if (!pathBox) {
+                    pathBox = { minX: x, minY: y, maxX: x, maxY: y };
+                } else {
+                    pathBox.minX = Math.min(pathBox.minX, x);
+                    pathBox.minY = Math.min(pathBox.minY, y);
+                    pathBox.maxX = Math.max(pathBox.maxX, x);
+                    pathBox.maxY = Math.max(pathBox.maxY, y);
+                }
+            }
+
             function applyPoint(x, y) {
                 const m = pdfjsLib.Util.transform(viewport.transform, ctm);
-                return [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]];
+                const px = m[0] * x + m[2] * y + m[4];
+                const py = m[1] * x + m[3] * y + m[5];
+                updatePathBox(px, py);
+                return [px, py];
             }
 
             function appendPathEl(d, fill, stroke, width, fAlpha, sAlpha, clipId) {
                 if (!d) return;
                 const pathEl = document.createElementNS(svgNS, 'path');
                 pathEl.setAttribute('d', d);
-                pathEl.setAttribute('fill', fill || 'none');
-                if (fill && fill !== 'none' && fAlpha < 1) {
+
+                let finalFill = fill || 'none';
+                if (finalFill && finalFill !== 'none' && currentTheme === 'dark') {
+                    const rgb = parseRgbChannels(finalFill);
+                    if (rgb) {
+                        const lum = getLuminance(rgb[0], rgb[1], rgb[2]);
+                        // 페이지 전체 배경 흰색 사각형은 투명 처리
+                        const isFullPageBg = pathBox &&
+                            (pathBox.maxX - pathBox.minX) >= viewport.width * 0.9 &&
+                            (pathBox.maxY - pathBox.minY) >= viewport.height * 0.9 &&
+                            lum > 0.85;
+                        if (isFullPageBg) {
+                            finalFill = 'none';
+                        } else if (lum > 0.72) {
+                            // 눈부신 밝은 배경 박스는 어두운 톤으로 눌러서 대비 확보
+                            finalFill = '#262b33';
+                        }
+                    }
+                }
+
+                pathEl.setAttribute('fill', finalFill);
+                if (finalFill && finalFill !== 'none' && fAlpha < 1) {
                     pathEl.setAttribute('fill-opacity', fAlpha.toFixed(3));
                 }
-                pathEl.setAttribute('stroke', stroke || 'none');
-                if (stroke && stroke !== 'none') {
+
+                let finalStroke = stroke || 'none';
+                if (finalStroke && finalStroke !== 'none' && currentTheme === 'dark') {
+                    const rgb = parseRgbChannels(finalStroke);
+                    if (rgb && getLuminance(rgb[0], rgb[1], rgb[2]) < 0.2) {
+                        finalStroke = '#555d68';
+                    }
+                }
+
+                pathEl.setAttribute('stroke', finalStroke);
+                if (finalStroke && finalStroke !== 'none') {
                     pathEl.setAttribute('stroke-width', Math.max(0.65, width).toFixed(2));
                     if (sAlpha < 1) {
                         pathEl.setAttribute('stroke-opacity', sAlpha.toFixed(3));
@@ -590,6 +724,23 @@
                     pathEl.setAttribute('clip-path', `url(#${clipId})`);
                 }
                 svg.appendChild(pathEl);
+
+                // 밝은 채우기 박스를 기록(다크 모드에서 박스 위 글자 대비 판별용)
+                if (fill && fill !== 'none' && pathBox) {
+                    const rgb = parseRgbChannels(fill);
+                    if (rgb && getLuminance(rgb[0], rgb[1], rgb[2]) > 0.75) {
+                        const w = pathBox.maxX - pathBox.minX;
+                        const h = pathBox.maxY - pathBox.minY;
+                        if (w > 12 && h > 8 && w < viewport.width * 0.95) {
+                            lightBgRects.push({
+                                left: pathBox.minX,
+                                right: pathBox.maxX,
+                                top: pathBox.minY,
+                                bottom: pathBox.maxY
+                            });
+                        }
+                    }
+                }
             }
 
             function registerClipPath(d) {
@@ -712,14 +863,18 @@
                 } else if (fn === OPS.fill || fn === OPS.eoFill) {
                     appendPathEl(currentPath.trim(), fillColor, 'none', 0, fillAlpha, strokeAlpha, currentClipId);
                     currentPath = '';
+                    pathBox = null;
                 } else if (fn === OPS.stroke) {
                     appendPathEl(currentPath.trim(), 'none', strokeColor, lineWidth, fillAlpha, strokeAlpha, currentClipId);
                     currentPath = '';
+                    pathBox = null;
                 } else if (fn === OPS.fillStroke || fn === OPS.eoFillStroke) {
                     appendPathEl(currentPath.trim(), fillColor, strokeColor, lineWidth, fillAlpha, strokeAlpha, currentClipId);
                     currentPath = '';
+                    pathBox = null;
                 } else if (fn === OPS.endPath) {
                     currentPath = '';
+                    pathBox = null;
                 } else if (fn === OPS.showText || fn === OPS.showSpacedText) {
                     const m = pdfjsLib.Util.transform(viewport.transform, ctm);
                     textColorHints.push({
@@ -744,6 +899,9 @@
                         imgEl.style.top = `${(m[5] - h).toFixed(2)}px`;
                         imgEl.style.width = `${w.toFixed(2)}px`;
                         imgEl.style.height = `${h.toFixed(2)}px`;
+                        if (currentTheme === 'dark') {
+                            imgEl.style.filter = 'brightness(0.92) contrast(1.03)';
+                        }
                         if (Math.abs(angleDeg) > 0.1) {
                             imgEl.style.transform = `rotate(${angleDeg.toFixed(2)}deg)`;
                         }
@@ -752,11 +910,10 @@
                 }
             }
 
-            return { svg, imageLayer, textColorHints };
+            return { svg, imageLayer, textColorHints, lightBgRects };
         }
 
-        // 일그러짐 없이 기준선(baseline)과 부드러운 자간만 적용해 텍스트 렌더링
-        function buildTextDomLayer(textContent, viewport, scale, textColorHints) {
+        function buildTextDomLayer(textContent, viewport, scale, textColorHints, lightBgRects) {
             const textLayer = document.createElement('div');
             textLayer.className = 'pdf-text-layer';
 
@@ -769,7 +926,6 @@
                 if (!item.str) continue;
 
                 const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
-                // 세로 스케일(tx[3]) 기준으로 폰트 크기를 잡아 가로 찌그러짐 방지
                 const fontHeight = Math.abs(tx[3]) || Math.hypot(tx[2], tx[3]) || Math.abs(item.height * scale) || 12;
                 const angleDeg = (Math.atan2(tx[1], tx[0]) * 180) / Math.PI;
                 const targetWidth = Math.abs((item.width || 0) * scale);
@@ -778,7 +934,6 @@
                 span.className = 'pdf-text-node';
                 span.textContent = item.str;
                 span.style.left = `${tx[4].toFixed(2)}px`;
-                // 나눔고딕 상단/하단 여백 차이를 보정해 PDF 베이스라인(tx[5])에 맞춤
                 span.style.top = `${(tx[5] - fontHeight * 0.88).toFixed(2)}px`;
                 span.style.fontSize = `${fontHeight.toFixed(2)}px`;
                 span.style.fontFamily = NANUM_FONT;
@@ -792,11 +947,8 @@
                         bestColor = hint.color;
                     }
                 }
-                if (bestColor) {
-                    span.style.color = bestColor;
-                }
+                span.style.color = adaptTextColorForTheme(bestColor, tx[4], tx[5], lightBgRects);
 
-                // 과도한 scaleX 왜곡을 피하고 작은 자간 차이만 미세 조정
                 if (targetWidth > 0 && item.str.length > 1) {
                     mctx.font = `${fontHeight.toFixed(2)}px ${NANUM_FONT}`;
                     const measuredWidth = mctx.measureText(item.str).width;
@@ -840,7 +992,7 @@
                     const opList = await page.getOperatorList();
                     const textContent = await page.getTextContent();
 
-                    const { svg, imageLayer, textColorHints } = await parsePageGraphics(
+                    const { svg, imageLayer, textColorHints, lightBgRects } = await parsePageGraphics(
                         page,
                         opList,
                         viewport,
@@ -856,7 +1008,8 @@
                         textContent,
                         viewport,
                         scale,
-                        textColorHints
+                        textColorHints,
+                        lightBgRects
                     );
 
                     pageEl.appendChild(vectorWrapper);
@@ -870,6 +1023,22 @@
                 }
             } finally {
                 isRendering = false;
+            }
+        }
+
+        function setTheme(theme) {
+            currentTheme = theme;
+            document.documentElement.setAttribute('data-theme', theme);
+            if (theme === 'dark') {
+                themeToggleBtn.textContent = '라이트 모드';
+                themeToggleBtn.classList.add('active');
+            } else {
+                themeToggleBtn.textContent = '다크 모드';
+                themeToggleBtn.classList.remove('active');
+            }
+
+            if (pdfDoc) {
+                renderAllPages();
             }
         }
 
@@ -921,7 +1090,7 @@
                 console.error(err);
                 statusMessage.style.display = 'block';
                 statusMessage.innerHTML = `
-          <p style="color: #ff6b6b;">PDF를 불러오는 데 실패했습니다.</p>
+          <p style="color: #d92d20;">PDF를 불러오는 데 실패했습니다.</p>
           <p style="font-size: 0.85rem; margin-top: 6px;"><code>${pdfPath}</code> 경로를 확인해주세요.<br>(${err.message})</p>
         `;
             }
@@ -934,6 +1103,10 @@
                 pageNumInput.value = num;
             }
         }
+
+        themeToggleBtn.addEventListener('click', () => {
+            setTheme(currentTheme === 'light' ? 'dark' : 'light');
+        });
 
         dockTrigger.addEventListener('click', (e) => {
             e.stopPropagation();
