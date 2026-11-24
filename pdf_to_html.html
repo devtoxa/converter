@@ -1,1176 +1,917 @@
 <!DOCTYPE html>
-<html lang="ko" data-theme="light">
+<html lang="ko">
 
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>PDF HTML Viewer</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Nanum+Gothic:wght@400;700&display=swap" rel="stylesheet" />
+    <title>Pure PDF to HTML Converter (No Canvas)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
-        :root,
-        [data-theme="light"] {
-            --bg-color: #f4f6f8;
-            --toolbar-bg: #ffffff;
-            --border-color: #dce1e7;
-            --text-color: #1f242b;
-            --muted-text: #5f6773;
-            --accent-color: #1971c2;
-            --accent-soft: rgba(25, 113, 194, 0.12);
-            --btn-hover: #eef2f6;
-            --frame-bg: #eef1f5;
-            --frame-border: #d5dce4;
-            --page-bg: #ffffff;
-            --default-pdf-text: #111111;
-            --shadow-color: rgba(15, 23, 42, 0.12);
-            --font-nanum: 'Nanum Gothic', 'Malgun Gothic', sans-serif;
+        :root {
+            --bg: #f4f6f9;
+            --surface: #ffffff;
+            --text: #181c24;
+            --muted: #647084;
+            --border: #dce2ec;
+            --accent: #2563eb;
+            --stage-width: 960px;
         }
 
-        [data-theme="dark"] {
-            --bg-color: #121212;
-            --toolbar-bg: #1e1e1e;
-            --border-color: #333333;
-            --text-color: #e6e6e6;
-            --muted-text: #a0a0a0;
-            --accent-color: #4dabf7;
-            --accent-soft: rgba(77, 171, 247, 0.16);
-            --btn-hover: #2c2c2c;
-            --frame-bg: #181818;
-            --frame-border: #2e2e2e;
-            --page-bg: #1a1a1a;
-            --default-pdf-text: #e8eaed;
-            --shadow-color: rgba(0, 0, 0, 0.6);
+        body.dark {
+            --bg: #0f131a;
+            --surface: #171d28;
+            --text: #e6ecf5;
+            --muted: #8b97ad;
+            --border: #273142;
+            --accent: #4f8cff;
         }
 
         * {
             box-sizing: border-box;
-            margin: 0;
-            padding: 0;
         }
 
         body {
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            font-family: var(--font-nanum);
+            margin: 0;
+            font-family: "Pretendard", "Malgun Gothic", system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
             display: flex;
             flex-direction: column;
-            height: 100vh;
-            overflow: hidden;
-            transition: background-color 0.2s ease, color 0.2s ease;
         }
 
         header {
-            background-color: var(--toolbar-bg);
-            border-bottom: 1px solid var(--border-color);
-            padding: 9px 14px;
+            position: sticky;
+            top: 0;
+            z-index: 20;
             display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 10px 16px;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .toolbar-row {
+            display: flex;
+            flex-wrap: wrap;
             align-items: center;
             justify-content: space-between;
-            gap: 10px;
-            flex-wrap: wrap;
-            z-index: 20;
-            transition: background-color 0.2s ease, border-color 0.2s ease;
+            gap: 8px;
         }
 
-        .toolbar-group {
+        .group {
             display: flex;
             align-items: center;
-            gap: 7px;
+            gap: 6px;
+            flex-wrap: wrap;
         }
 
-        #file-name {
-            font-size: 0.88rem;
-            font-weight: 700;
-            max-width: 280px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            color: var(--text-color);
+        .path-form {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex: 1;
+            min-width: 260px;
         }
 
-        button {
-            background-color: var(--toolbar-bg);
-            color: var(--text-color);
-            border: 1px solid var(--border-color);
-            padding: 4px 9px;
-            border-radius: 4px;
-            font-family: var(--font-nanum);
-            font-size: 0.82rem;
+        .path-form input[type="text"] {
+            flex: 1;
+            min-width: 180px;
+        }
+
+        button,
+        input[type="text"],
+        input[type="search"],
+        .file-label {
+            font: inherit;
+            color: var(--text);
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 6px 10px;
+            font-size: 13px;
+        }
+
+        button,
+        .file-label {
             cursor: pointer;
-            transition: background-color 0.15s, border-color 0.15s, color 0.15s;
             user-select: none;
+            white-space: nowrap;
         }
 
-        button:hover:not(:disabled) {
-            background-color: var(--btn-hover);
-            border-color: var(--accent-color);
-        }
-
-        button.active {
-            background-color: var(--accent-soft);
-            border-color: var(--accent-color);
-            color: var(--accent-color);
-            font-weight: 700;
+        button.active,
+        button.primary {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #fff;
         }
 
         button:disabled {
-            opacity: 0.4;
+            opacity: 0.45;
             cursor: not-allowed;
-        }
-
-        input[type="number"] {
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            padding: 4px 6px;
-            width: 52px;
-            text-align: center;
-            font-family: var(--font-nanum);
-            font-size: 0.82rem;
-        }
-
-        .page-info,
-        .device-label {
-            font-size: 0.8rem;
-            color: var(--muted-text);
         }
 
         main {
             flex: 1;
-            overflow: auto;
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 16px 12px 96px;
-            position: relative;
+            padding: 20px 12px 40px;
+            gap: 14px;
         }
 
-        .device-frame {
-            width: 100%;
-            max-width: 100%;
+        .search-bar {
+            width: min(100%, var(--stage-width));
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .search-bar input {
+            flex: 1;
+            background: var(--surface);
+        }
+
+        .stage {
+            width: min(100%, var(--stage-width));
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 20px;
-            transition: max-width 0.22s ease, padding 0.22s ease, background-color 0.2s ease, border-color 0.2s ease;
+            gap: 12px;
+            transition: width 0.2s ease;
         }
 
-        .device-frame.preset-pc {
-            max-width: 100%;
-        }
-
-        .device-frame.preset-tablet {
-            max-width: 640px;
-            padding: 12px;
-            border: 1px solid var(--frame-border);
-            border-radius: 14px;
-            background-color: var(--frame-bg);
-            box-shadow: 0 8px 28px var(--shadow-color);
-        }
-
-        .device-frame.preset-mobile {
-            max-width: 312px;
-            padding: 10px 8px;
-            border: 1px solid var(--frame-border);
-            border-radius: 20px;
-            background-color: var(--frame-bg);
-            box-shadow: 0 8px 28px var(--shadow-color);
-        }
-
-        .pdf-html-page {
+        .rendered-html-page {
             position: relative;
-            background-color: var(--page-bg);
-            color: var(--default-pdf-text);
-            box-shadow: 0 4px 18px var(--shadow-color);
+            background: #ffffff;
+            color: #111827;
+            border: 1px solid var(--border);
+            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
             overflow: hidden;
             flex-shrink: 0;
-            font-family: var(--font-nanum);
-            transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+            user-select: none;
+            -webkit-user-select: none;
         }
 
-        .pdf-vector-layer {
+        .pdf-shape {
             position: absolute;
-            inset: 0;
-            width: 100%;
-            height: 100%;
             pointer-events: none;
-            z-index: 1;
+            user-select: none;
+            -webkit-user-select: none;
         }
 
-        .pdf-image-layer {
-            position: absolute;
-            inset: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 2;
-        }
-
-        .pdf-image-node {
-            position: absolute;
-            display: block;
-            transform-origin: top left;
-            pointer-events: none;
-        }
-
-        .pdf-text-layer {
-            position: absolute;
-            inset: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 3;
-            font-family: var(--font-nanum);
-        }
-
-        .pdf-text-node {
+        .pdf-text-run {
             position: absolute;
             white-space: pre;
-            transform-origin: left bottom;
             line-height: 1;
-            cursor: text;
-            font-family: var(--font-nanum);
-            color: var(--default-pdf-text);
-        }
-
-        .device-dock {
-            position: fixed;
-            bottom: 18px;
-            right: 18px;
-            z-index: 30;
-            display: flex;
-            flex-direction: column-reverse;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .dock-trigger {
-            width: 44px;
-            height: 44px;
-            border-radius: 50%;
-            background-color: var(--toolbar-bg);
-            border: 1px solid var(--border-color);
-            color: var(--text-color);
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            margin: 0;
             padding: 0;
-            box-shadow: 0 6px 20px var(--shadow-color);
+            color: #111827;
+            letter-spacing: -0.02em;
+            user-select: text;
+            -webkit-user-select: text;
+            cursor: text;
         }
 
-        .dock-trigger:hover {
-            border-color: var(--accent-color);
-            background-color: var(--btn-hover);
+        .pdf-text-run::selection,
+        .pdf-text-run *::selection {
+            background: #bfdbfe;
+            color: #111827;
         }
 
-        .dock-menu {
-            display: none;
-            flex-direction: column;
-            gap: 5px;
-            background-color: var(--toolbar-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 7px;
-            box-shadow: 0 8px 24px var(--shadow-color);
-        }
-
-        .device-dock.open .dock-menu {
-            display: flex;
-        }
-
-        .dock-option {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 6px 11px;
-            border-radius: 8px;
-            border: 1px solid transparent;
-            background: transparent;
-            color: var(--text-color);
-            font-size: 0.8rem;
-            white-space: nowrap;
-        }
-
-        .dock-option:hover {
-            background-color: var(--btn-hover);
-            border-color: var(--border-color);
-        }
-
-        .dock-option.active {
-            background-color: var(--accent-soft);
-            border-color: var(--accent-color);
-            color: var(--accent-color);
+        .pdf-text-run.bold {
             font-weight: 700;
         }
 
-        .dock-option svg,
-        .dock-trigger svg {
-            width: 17px;
-            height: 17px;
-            flex-shrink: 0;
+        .pdf-text-run.mono {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            background: rgba(15, 23, 42, 0.05);
+            border-radius: 2px;
         }
 
-        #status-message {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
+        .pdf-text-run mark {
+            background: #fde047;
+            color: #111827;
+            border-radius: 2px;
+        }
+
+        .status-box {
+            width: 100%;
+            padding: 28px 16px;
             text-align: center;
-            color: var(--muted-text);
-            line-height: 1.6;
+            color: var(--muted);
+            line-height: 1.7;
         }
 
-        #status-message code {
-            background: var(--toolbar-bg);
-            border: 1px solid var(--border-color);
-            padding: 2px 6px;
-            border-radius: 4px;
-            color: var(--accent-color);
+        .hits {
+            width: 100%;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            font-size: 12px;
+        }
+
+        .hit-btn {
+            padding: 4px 8px;
+            font-size: 12px;
+        }
+
+        .html-preview-box {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .html-preview-box textarea {
+            width: 100%;
+            min-height: 160px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 12px;
+            background: var(--bg);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 10px;
+            resize: vertical;
         }
     </style>
 </head>
 
 <body>
-
     <header>
-        <div class="toolbar-group">
-            <span id="file-name" title="파일명">path 미지정</span>
+        <div class="toolbar-row">
+            <strong>Pure PDF → HTML Renderer (No Canvas)</strong>
+
+            <form id="pathForm" class="path-form">
+                <input id="pathInput" type="text" placeholder="PDF 경로 또는 URL 입력 (예: /.pdf/md_to_pdf.pdf 또는 https://...)"
+                    autocomplete="off" />
+                <button type="submit" class="primary">HTML로 변환</button>
+                <label class="file-label" title="로컬 PDF 파일 열기">
+                    파일 선택
+                    <input id="fileInput" type="file" accept="application/pdf" hidden />
+                </label>
+            </form>
         </div>
 
-        <div class="toolbar-group">
-            <button id="prev-page" disabled>이전</button>
-            <input type="number" id="page-num" value="1" min="1" disabled />
-            <span class="page-info">/ <span id="page-count">0</span></span>
-            <button id="next-page" disabled>다음</button>
-        </div>
+        <div class="toolbar-row">
+            <div class="group">
+                <button id="prevBtn" type="button" disabled>이전</button>
+                <span id="pageIndicator">0 / 0</span>
+                <button id="nextBtn" type="button" disabled>다음</button>
+                <button id="copyHtmlBtn" type="button" disabled>HTML 코드 복사</button>
+                <button id="downloadHtmlBtn" type="button" disabled>HTML 파일 저장</button>
+            </div>
 
-        <div class="toolbar-group">
-            <button id="theme-toggle-btn" title="라이트 / 다크 모드 전환">다크 모드</button>
-            <span class="device-label" id="current-device-label">PC (화면최적화)</span>
-            <button id="refit-btn" disabled>화면 맞춤</button>
+            <div class="group">
+                <button id="themeBtn" type="button">다크 모드</button>
+                <button type="button" data-width="960px" class="active">PC</button>
+                <button type="button" data-width="720px">탭</button>
+                <button type="button" data-width="412px">스마트폰</button>
+            </div>
         </div>
     </header>
 
-    <main id="viewer-container">
-        <div id="status-message">
-            <p>URL에 <code>?path=...</code> 파라미터를 지정해주세요.</p>
-            <p style="margin-top: 8px; font-size: 0.85rem;">
-                예시: <code>?path=/.pdf/ont-hot_coding.pdf</code>
-            </p>
+    <main>
+        <div class="search-bar">
+            <input id="searchInput" type="search" placeholder="변환된 HTML DOM 텍스트에서 키워드 검색..." />
+            <button id="clearSearchBtn" type="button">초기화</button>
         </div>
 
-        <div id="device-frame" class="device-frame preset-pc"></div>
+        <section class="stage" id="stage">
+            <div id="statusBox" class="status-box">
+                상단 입력창에 PDF 경로 또는 URL을 입력하거나 <code>?path=...</code> 파라미터를 지정해주세요.<br />
+                예시: <code>/.pdf/md_to_pdf.pdf</code>
+            </div>
+
+            <div id="pageHost" style="width: 100%; display: flex; justify-content: center;" hidden></div>
+            <div id="hitsBox" class="hits"></div>
+
+            <div id="htmlSourceWrap" class="html-preview-box" hidden>
+                <strong>렌더링된 순수 HTML 소스 (Canvas 태그 0개)</strong>
+                <textarea id="htmlSourceArea" readonly></textarea>
+            </div>
+        </section>
     </main>
 
-    <div id="device-dock" class="device-dock">
-        <button id="dock-trigger" class="dock-trigger" title="화면 모드 선택 (PC / 탭 / 스마트폰)" aria-label="화면 모드 선택">
-            <svg id="dock-active-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                stroke-linecap="round" stroke-linejoin="round">
-                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-                <line x1="8" y1="21" x2="16" y2="21"></line>
-                <line x1="12" y1="17" x2="12" y2="21"></line>
-            </svg>
-        </button>
-
-        <div class="dock-menu" role="menu">
-            <button class="dock-option active" data-device="pc" role="menuitem">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                    stroke-linejoin="round">
-                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-                    <line x1="8" y1="21" x2="16" y2="21"></line>
-                    <line x1="12" y1="17" x2="12" y2="21"></line>
-                </svg>
-                <span>PC (화면최적화)</span>
-            </button>
-            <button class="dock-option" data-device="tablet" role="menuitem">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                    stroke-linejoin="round">
-                    <rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect>
-                    <line x1="12" y1="18" x2="12.01" y2="18"></line>
-                </svg>
-                <span>탭</span>
-            </button>
-            <button class="dock-option" data-device="mobile" role="menuitem">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                    stroke-linejoin="round">
-                    <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
-                    <line x1="12" y1="18" x2="12.01" y2="18"></line>
-                </svg>
-                <span>스마트폰</span>
-            </button>
-        </div>
-    </div>
-
     <script>
-        const pdfjsLib = window['pdfjs-dist/build/pdf'];
+        pdfjsLib.GlobalWorkerOptions.workerSrc =
+            "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
         const OPS = pdfjsLib.OPS;
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-        const NANUM_FONT = "'Nanum Gothic', 'Malgun Gothic', sans-serif";
+        const state = {
+            pdfDoc: null,
+            docTitle: "converted",
+            pageNum: 1,
+            totalPages: 0,
+            pagesText: [],
+            rendering: false,
+            pendingPage: null
+        };
 
-        let pdfDoc = null;
-        let currentTheme = 'light'; // 'light' | 'dark'
-        let currentDevice = 'pc';
-        let isRendering = false;
-        let resizeTimer = null;
+        const el = {
+            pathForm: document.getElementById("pathForm"),
+            pathInput: document.getElementById("pathInput"),
+            fileInput: document.getElementById("fileInput"),
+            prevBtn: document.getElementById("prevBtn"),
+            nextBtn: document.getElementById("nextBtn"),
+            pageIndicator: document.getElementById("pageIndicator"),
+            copyHtmlBtn: document.getElementById("copyHtmlBtn"),
+            downloadHtmlBtn: document.getElementById("downloadHtmlBtn"),
+            themeBtn: document.getElementById("themeBtn"),
+            searchInput: document.getElementById("searchInput"),
+            clearSearchBtn: document.getElementById("clearSearchBtn"),
+            stage: document.getElementById("stage"),
+            statusBox: document.getElementById("statusBox"),
+            pageHost: document.getElementById("pageHost"),
+            hitsBox: document.getElementById("hitsBox"),
+            htmlSourceWrap: document.getElementById("htmlSourceWrap"),
+            htmlSourceArea: document.getElementById("htmlSourceArea")
+        };
 
-        const viewerContainer = document.getElementById('viewer-container');
-        const deviceFrame = document.getElementById('device-frame');
-        const statusMessage = document.getElementById('status-message');
-        const fileNameEl = document.getElementById('file-name');
-        const pageNumInput = document.getElementById('page-num');
-        const pageCountEl = document.getElementById('page-count');
-        const currentDeviceLabel = document.getElementById('current-device-label');
-
-        const themeToggleBtn = document.getElementById('theme-toggle-btn');
-        const prevBtn = document.getElementById('prev-page');
-        const nextBtn = document.getElementById('next-page');
-        const refitBtn = document.getElementById('refit-btn');
-
-        const deviceDock = document.getElementById('device-dock');
-        const dockTrigger = document.getElementById('dock-trigger');
-        const dockActiveIcon = document.getElementById('dock-active-icon');
-        const dockOptions = document.querySelectorAll('.dock-option');
-
-        function getPathParam() {
-            const params = new URLSearchParams(window.location.search);
-            return params.get('path');
+        function escapeHtml(str) {
+            return str
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;");
         }
 
-        function enableControls(totalPages) {
-            pageCountEl.textContent = totalPages;
-            pageNumInput.max = totalPages;
-            pageNumInput.disabled = false;
-            prevBtn.disabled = false;
-            nextBtn.disabled = false;
-            refitBtn.disabled = false;
+        function escapeRegExp(str) {
+            return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
         }
 
-        async function computeFitScale(page) {
-            const unscaledViewport = page.getViewport({ scale: 1 });
-            let targetWidth;
-
-            if (currentDevice === 'mobile') {
-                targetWidth = Math.min(312, viewerContainer.clientWidth - 16) - 16;
-            } else if (currentDevice === 'tablet') {
-                targetWidth = Math.min(640, viewerContainer.clientWidth - 20) - 24;
-            } else {
-                targetWidth = viewerContainer.clientWidth - 24;
-            }
-
-            targetWidth = Math.max(200, targetWidth);
-            return targetWidth / unscaledViewport.width;
-        }
-
-        // rgb(r, g, b) 문자열을 [r, g, b] 숫자로 파싱
-        function parseRgbChannels(rgbStr) {
-            if (!rgbStr) return null;
-            const match = rgbStr.match(/rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i);
-            if (!match) return null;
-            return [Number(match[1]), Number(match[2]), Number(match[3])];
-        }
-
-        // 상대 휘도(0~1) 계산
-        function getLuminance(r, g, b) {
-            const toLin = (c) => {
-                const s = Math.max(0, Math.min(255, c)) / 255;
-                return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
-            };
-            return 0.2126 * toLin(r) + 0.7152 * toLin(g) + 0.0722 * toLin(b);
-        }
-
-        // 테마 및 배경(밝은 도형/표 셀 등)을 고려해 글자색 대비 보정
-        function adaptTextColorForTheme(rawColor, x, y, lightBgRects) {
-            const rgb = parseRgbChannels(rawColor);
-            if (!rgb) {
-                return currentTheme === 'dark' ? '#e8eaed' : '#111111';
-            }
-
-            const [r, g, b] = rgb;
-            const lum = getLuminance(r, g, b);
-
-            if (currentTheme === 'light') {
-                // 라이트 모드에서 지나치게 흰색/연한 회색 글자는 가독성을 위해 어둡게 보정
-                if (lum > 0.78) {
-                    return '#222222';
-                }
-                return `rgb(${r}, ${g}, ${b})`;
-            }
-
-            // 다크 모드: 글자 좌표가 밝은 사각형(표 헤더/배너/박스 등) 위에 있으면 원본 글자색 유지
-            const overLightBox = lightBgRects.some(
-                box => x >= box.left - 2 && x <= box.right + 2 && y >= box.top - 2 && y <= box.bottom + 4
+        function highlightText(rawText, query) {
+            if (!query) return escapeHtml(rawText);
+            return escapeHtml(rawText).replace(
+                new RegExp("(" + escapeRegExp(escapeHtml(query)) + ")", "gi"),
+                "<mark>$1</mark>"
             );
-            if (overLightBox) {
-                return `rgb(${r}, ${g}, ${b})`;
-            }
-
-            // 어두운 페이지 배경 위에서는 어두운 글자(휘도 낮음)를 밝은 색으로 전환
-            if (lum < 0.25) {
-                return '#e8eaed';
-            }
-            return `rgb(${r}, ${g}, ${b})`;
         }
 
-        function colorArgsToCss(args) {
-            if (!Array.isArray(args) || args.length === 0) return null;
-            if (args.length === 1) {
-                const g = Number(args[0]);
-                if (Number.isNaN(g)) return null;
-                const norm = g > 1 ? g / 255 : g;
-                const v = Math.round(Math.max(0, Math.min(1, norm)) * 255);
-                return `rgb(${v}, ${v}, ${v})`;
-            }
-            if (args.length === 3) {
-                const nums = args.slice(0, 3).map(Number);
-                if (nums.some(Number.isNaN)) return null;
-                const mult = (nums[0] <= 1 && nums[1] <= 1 && nums[2] <= 1) ? 255 : 1;
-                const r = Math.round(Math.max(0, Math.min(255, nums[0] * mult)));
-                const g = Math.round(Math.max(0, Math.min(255, nums[1] * mult)));
-                const b = Math.round(Math.max(0, Math.min(255, nums[2] * mult)));
-                return `rgb(${r}, ${g}, ${b})`;
-            }
-            if (args.length >= 4) {
-                const nums = args.slice(0, 4).map(Number);
-                if (nums.some(Number.isNaN)) return null;
-                const c = nums[0] > 1 ? nums[0] / 255 : nums[0];
-                const m = nums[1] > 1 ? nums[1] / 255 : nums[1];
-                const y = nums[2] > 1 ? nums[2] / 255 : nums[2];
-                const k = nums[3] > 1 ? nums[3] / 255 : nums[3];
-                const r = Math.round(255 * (1 - c) * (1 - k));
-                const g = Math.round(255 * (1 - m) * (1 - k));
-                const b = Math.round(255 * (1 - y) * (1 - k));
-                return `rgb(${r}, ${g}, ${b})`;
-            }
-            return null;
+        function getTargetPathFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+            const raw = params.get("path");
+            return raw ? raw.trim() : "";
         }
 
-        async function extractImageSrc(page, imgName, args) {
-            try {
-                let imgData = null;
-
-                if (imgName) {
-                    imgData = await new Promise((resolve) => {
-                        if (page.objs.has(imgName)) {
-                            resolve(page.objs.get(imgName));
-                        } else if (page.commonObjs && page.commonObjs.has(imgName)) {
-                            resolve(page.commonObjs.get(imgName));
-                        } else {
-                            page.objs.get(imgName, (data) => resolve(data));
-                        }
-                    });
-                } else if (args && args[0]) {
-                    imgData = args[0];
-                }
-
-                if (!imgData) return null;
-
-                if (imgData instanceof HTMLImageElement) {
-                    return imgData.src || null;
-                }
-                if (imgData instanceof HTMLCanvasElement) {
-                    return imgData.toDataURL('image/png');
-                }
-                if (imgData.bitmap && typeof ImageBitmap !== 'undefined') {
-                    const tmpCanvas = document.createElement('canvas');
-                    tmpCanvas.width = imgData.bitmap.width;
-                    tmpCanvas.height = imgData.bitmap.height;
-                    const tctx = tmpCanvas.getContext('2d');
-                    tctx.drawImage(imgData.bitmap, 0, 0);
-                    return tmpCanvas.toDataURL('image/png');
-                }
-
-                const width = imgData.width;
-                const height = imgData.height;
-                if (!width || !height) return null;
-
-                const offCanvas = document.createElement('canvas');
-                offCanvas.width = width;
-                offCanvas.height = height;
-                const offCtx = offCanvas.getContext('2d');
-
-                if (imgData.data instanceof Uint8ClampedArray || imgData.data instanceof Uint8Array) {
-                    const pixelCount = width * height;
-                    const rgba = new Uint8ClampedArray(pixelCount * 4);
-                    const src = imgData.data;
-
-                    if (src.length === pixelCount * 4) {
-                        rgba.set(src);
-                    } else if (src.length === pixelCount * 3) {
-                        for (let i = 0, j = 0; i < pixelCount; i++, j += 3) {
-                            rgba[i * 4] = src[j];
-                            rgba[i * 4 + 1] = src[j + 1];
-                            rgba[i * 4 + 2] = src[j + 2];
-                            rgba[i * 4 + 3] = 255;
-                        }
-                    } else if (src.length === pixelCount) {
-                        for (let i = 0; i < pixelCount; i++) {
-                            const g = src[i];
-                            rgba[i * 4] = g;
-                            rgba[i * 4 + 1] = g;
-                            rgba[i * 4 + 2] = g;
-                            rgba[i * 4 + 3] = 255;
-                        }
-                    } else {
-                        return null;
-                    }
-
-                    const imageData = new ImageData(rgba, width, height);
-                    offCtx.putImageData(imageData, 0, 0);
-                    return offCanvas.toDataURL('image/png');
-                }
-            } catch (_) {
-                return null;
+        function syncUrlParam(targetPath) {
+            const url = new URL(window.location.href);
+            if (targetPath) {
+                url.searchParams.set("path", targetPath);
+            } else {
+                url.searchParams.delete("path");
             }
-            return null;
+            window.history.replaceState({}, "", url.toString());
         }
 
-        async function parsePageGraphics(page, opList, viewport, scale, pageIndex) {
-            const svgNS = 'http://www.w3.org/2000/svg';
-            const svg = document.createElementNS(svgNS, 'svg');
-            svg.setAttribute('viewBox', `0 0 ${viewport.width} ${viewport.height}`);
-            svg.setAttribute('width', viewport.width);
-            svg.setAttribute('height', viewport.height);
+        function resolvePdfUrl(rawPath) {
+            if (/^https?:\/\//i.test(rawPath)) return rawPath;
+            return new URL(rawPath, window.location.origin).href;
+        }
 
-            const defs = document.createElementNS(svgNS, 'defs');
-            svg.appendChild(defs);
+        function setStatus(html) {
+            el.statusBox.innerHTML = html;
+            el.statusBox.hidden = false;
+            el.pageHost.hidden = true;
+            el.htmlSourceWrap.hidden = true;
+            el.copyHtmlBtn.disabled = true;
+            el.downloadHtmlBtn.disabled = true;
+        }
 
-            const imageLayer = document.createElement('div');
-            imageLayer.className = 'pdf-image-layer';
+        function showPageContainer() {
+            el.statusBox.hidden = true;
+            el.pageHost.hidden = false;
+            el.htmlSourceWrap.hidden = false;
+            el.copyHtmlBtn.disabled = false;
+            el.downloadHtmlBtn.disabled = false;
+        }
 
-            const textColorHints = [];
-            const lightBgRects = [];
+        function updatePager() {
+            el.pageIndicator.textContent = (state.totalPages ? state.pageNum : 0) + " / " + state.totalPages;
+            el.prevBtn.disabled = !state.pdfDoc || state.pageNum <= 1;
+            el.nextBtn.disabled = !state.pdfDoc || state.pageNum >= state.totalPages;
+        }
 
+        function multiplyMatrix(m1, m2) {
+            return [
+                m1[0] * m2[0] + m1[1] * m2[2],
+                m1[0] * m2[1] + m1[1] * m2[3],
+                m1[2] * m2[0] + m1[3] * m2[2],
+                m1[2] * m2[1] + m1[3] * m2[3],
+                m1[4] * m2[0] + m1[5] * m2[2] + m2[4],
+                m1[4] * m2[1] + m1[5] * m2[3] + m2[5]
+            ];
+        }
+
+        function transformPoint(m, x, y) {
+            return [
+                m[0] * x + m[2] * y + m[4],
+                m[1] * x + m[3] * y + m[5]
+            ];
+        }
+
+        function rgbToCss(args) {
+            if (!args || args.length < 3) return "#000000";
+            const r = args[0], g = args[1], b = args[2];
+            const to255 = (v) => (v <= 1 ? Math.round(v * 255) : Math.round(v));
+            return "rgb(" + to255(r) + ", " + to255(g) + ", " + to255(b) + ")";
+        }
+
+        function grayToCss(args) {
+            const g = args && args.length ? args[0] : 0;
+            const val = g <= 1 ? Math.round(g * 255) : Math.round(g);
+            return "rgb(" + val + ", " + val + ", " + val + ")";
+        }
+
+        function extractVectorShapesAsHtml(opList, viewport) {
+            const shapes = [];
             let ctm = [1, 0, 0, 1, 0, 0];
-            const ctmStack = [];
-            const clipStack = [];
-            let currentClipId = null;
-            let clipCounter = 0;
-
-            let currentPath = '';
-            let pathBox = null;
-            let fillColor = 'rgb(0, 0, 0)';
-            let strokeColor = 'rgb(0, 0, 0)';
-            let fillAlpha = 1;
-            let strokeAlpha = 1;
+            const stack = [];
+            let fillColor = "#ffffff";
+            let strokeColor = "#cbd5e1";
             let lineWidth = 1;
+            let pathRects = [];
+            let pathSegments = [];
+            let curX = 0;
+            let curY = 0;
 
-            function updatePathBox(x, y) {
-                if (!pathBox) {
-                    pathBox = { minX: x, minY: y, maxX: x, maxY: y };
-                } else {
-                    pathBox.minX = Math.min(pathBox.minX, x);
-                    pathBox.minY = Math.min(pathBox.minY, y);
-                    pathBox.maxX = Math.max(pathBox.maxX, x);
-                    pathBox.maxY = Math.max(pathBox.maxY, y);
-                }
-            }
+            const toViewportRect = (x, y, w, h) => {
+                const m = multiplyMatrix(ctm, viewport.transform);
+                const p1 = transformPoint(m, x, y);
+                const p2 = transformPoint(m, x + w, y + h);
+                return {
+                    left: Math.min(p1[0], p2[0]),
+                    top: Math.min(p1[1], p2[1]),
+                    width: Math.abs(p2[0] - p1[0]),
+                    height: Math.abs(p2[1] - p1[1])
+                };
+            };
 
-            function applyPoint(x, y) {
-                const m = pdfjsLib.Util.transform(viewport.transform, ctm);
-                const px = m[0] * x + m[2] * y + m[4];
-                const py = m[1] * x + m[3] * y + m[5];
-                updatePathBox(px, py);
-                return [px, py];
-            }
-
-            function appendPathEl(d, fill, stroke, width, fAlpha, sAlpha, clipId) {
-                if (!d) return;
-                const pathEl = document.createElementNS(svgNS, 'path');
-                pathEl.setAttribute('d', d);
-
-                let finalFill = fill || 'none';
-                if (finalFill && finalFill !== 'none' && currentTheme === 'dark') {
-                    const rgb = parseRgbChannels(finalFill);
-                    if (rgb) {
-                        const lum = getLuminance(rgb[0], rgb[1], rgb[2]);
-                        // 페이지 전체 배경 흰색 사각형은 투명 처리
-                        const isFullPageBg = pathBox &&
-                            (pathBox.maxX - pathBox.minX) >= viewport.width * 0.9 &&
-                            (pathBox.maxY - pathBox.minY) >= viewport.height * 0.9 &&
-                            lum > 0.85;
-                        if (isFullPageBg) {
-                            finalFill = 'none';
-                        } else if (lum > 0.72) {
-                            // 눈부신 밝은 배경 박스는 어두운 톤으로 눌러서 대비 확보
-                            finalFill = '#262b33';
-                        }
-                    }
-                }
-
-                pathEl.setAttribute('fill', finalFill);
-                if (finalFill && finalFill !== 'none' && fAlpha < 1) {
-                    pathEl.setAttribute('fill-opacity', fAlpha.toFixed(3));
-                }
-
-                let finalStroke = stroke || 'none';
-                if (finalStroke && finalStroke !== 'none' && currentTheme === 'dark') {
-                    const rgb = parseRgbChannels(finalStroke);
-                    if (rgb && getLuminance(rgb[0], rgb[1], rgb[2]) < 0.2) {
-                        finalStroke = '#555d68';
-                    }
-                }
-
-                pathEl.setAttribute('stroke', finalStroke);
-                if (finalStroke && finalStroke !== 'none') {
-                    pathEl.setAttribute('stroke-width', Math.max(0.65, width).toFixed(2));
-                    if (sAlpha < 1) {
-                        pathEl.setAttribute('stroke-opacity', sAlpha.toFixed(3));
-                    }
-                }
-                if (clipId) {
-                    pathEl.setAttribute('clip-path', `url(#${clipId})`);
-                }
-                svg.appendChild(pathEl);
-
-                // 밝은 채우기 박스를 기록(다크 모드에서 박스 위 글자 대비 판별용)
-                if (fill && fill !== 'none' && pathBox) {
-                    const rgb = parseRgbChannels(fill);
-                    if (rgb && getLuminance(rgb[0], rgb[1], rgb[2]) > 0.75) {
-                        const w = pathBox.maxX - pathBox.minX;
-                        const h = pathBox.maxY - pathBox.minY;
-                        if (w > 12 && h > 8 && w < viewport.width * 0.95) {
-                            lightBgRects.push({
-                                left: pathBox.minX,
-                                right: pathBox.maxX,
-                                top: pathBox.minY,
-                                bottom: pathBox.maxY
-                            });
-                        }
-                    }
-                }
-            }
-
-            function registerClipPath(d) {
-                if (!d) return;
-                clipCounter += 1;
-                const id = `clip-p${pageIndex}-${clipCounter}`;
-                const clipEl = document.createElementNS(svgNS, 'clipPath');
-                clipEl.setAttribute('id', id);
-                const cPath = document.createElementNS(svgNS, 'path');
-                cPath.setAttribute('d', d);
-                clipEl.appendChild(cPath);
-                defs.appendChild(clipEl);
-                currentClipId = id;
-            }
-
-            function processConstructPath(subOps, coords) {
-                let cIdx = 0;
-                let pathStr = '';
-
-                for (const subOp of subOps) {
-                    if (subOp === OPS.moveTo) {
-                        const [x, y] = applyPoint(coords[cIdx], coords[cIdx + 1]);
-                        cIdx += 2;
-                        pathStr += `M ${x.toFixed(2)} ${y.toFixed(2)} `;
-                    } else if (subOp === OPS.lineTo) {
-                        const [x, y] = applyPoint(coords[cIdx], coords[cIdx + 1]);
-                        cIdx += 2;
-                        pathStr += `L ${x.toFixed(2)} ${y.toFixed(2)} `;
-                    } else if (subOp === OPS.curveTo) {
-                        const [x1, y1] = applyPoint(coords[cIdx], coords[cIdx + 1]);
-                        const [x2, y2] = applyPoint(coords[cIdx + 2], coords[cIdx + 3]);
-                        const [x3, y3] = applyPoint(coords[cIdx + 4], coords[cIdx + 5]);
-                        cIdx += 6;
-                        pathStr += `C ${x1.toFixed(2)} ${y1.toFixed(2)}, ${x2.toFixed(2)} ${y2.toFixed(2)}, ${x3.toFixed(2)} ${y3.toFixed(2)} `;
-                    } else if (subOp === OPS.rectangle) {
-                        const rx0 = coords[cIdx];
-                        const ry0 = coords[cIdx + 1];
-                        const rw0 = coords[cIdx + 2];
-                        const rh0 = coords[cIdx + 3];
-                        cIdx += 4;
-
-                        const [x0, y0] = applyPoint(rx0, ry0);
-                        const [x1, y1] = applyPoint(rx0 + rw0, ry0 + rh0);
-                        const rx = Math.min(x0, x1);
-                        const ry = Math.min(y0, y1);
-                        const rw = Math.abs(x1 - x0);
-                        const rh = Math.abs(y1 - y0);
-                        pathStr += `M ${rx.toFixed(2)} ${ry.toFixed(2)} h ${rw.toFixed(2)} v ${rh.toFixed(2)} h ${(-rw).toFixed(2)} Z `;
-                    } else if (subOp === OPS.closePath) {
-                        pathStr += 'Z ';
-                    }
-                }
-
-                return pathStr.trim();
-            }
-
-            for (let i = 0; i < opList.fnArray.length; i++) {
-                const fn = opList.fnArray[i];
-                const args = opList.argsArray[i];
+            const fnArray = opList.fnArray;
+            const argsArray = opList.argsArray;
+            for (let i = 0; i < fnArray.length; i++) {
+                const fn = fnArray[i];
+                const args = argsArray[i];
 
                 if (fn === OPS.save) {
-                    ctmStack.push([...ctm]);
-                    clipStack.push(currentClipId);
+                    stack.push({ ctm: ctm.slice(), fillColor, strokeColor, lineWidth });
                 } else if (fn === OPS.restore) {
-                    if (ctmStack.length > 0) ctm = ctmStack.pop();
-                    currentClipId = clipStack.length > 0 ? clipStack.pop() : null;
+                    const prev = stack.pop();
+                    if (prev) {
+                        ctm = prev.ctm;
+                        fillColor = prev.fillColor;
+                        strokeColor = prev.strokeColor;
+                        lineWidth = prev.lineWidth;
+                    }
                 } else if (fn === OPS.transform) {
-                    ctm = pdfjsLib.Util.transform(ctm, args);
-                } else if (fn === OPS.setGState && Array.isArray(args[0])) {
-                    for (const [key, val] of args[0]) {
-                        if (key === 'ca' && typeof val === 'number') fillAlpha = val;
-                        if (key === 'CA' && typeof val === 'number') strokeAlpha = val;
-                    }
-                } else if (
-                    fn === OPS.setFillRGBColor ||
-                    fn === OPS.setFillGray ||
-                    fn === OPS.setFillCMYKColor ||
-                    fn === OPS.setFillColorN
-                ) {
-                    const c = colorArgsToCss(args);
-                    if (c) fillColor = c;
-                } else if (
-                    fn === OPS.setStrokeRGBColor ||
-                    fn === OPS.setStrokeGray ||
-                    fn === OPS.setStrokeCMYKColor ||
-                    fn === OPS.setStrokeColorN
-                ) {
-                    const c = colorArgsToCss(args);
-                    if (c) strokeColor = c;
+                    ctm = multiplyMatrix(args, ctm);
+                } else if (fn === OPS.setFillRGBColor) {
+                    fillColor = rgbToCss(args);
+                } else if (fn === OPS.setFillGray) {
+                    fillColor = grayToCss(args);
+                } else if (fn === OPS.setStrokeRGBColor) {
+                    strokeColor = rgbToCss(args);
+                } else if (fn === OPS.setStrokeGray) {
+                    strokeColor = grayToCss(args);
                 } else if (fn === OPS.setLineWidth) {
-                    lineWidth = (args[0] || 1) * scale;
-                } else if (fn === OPS.constructPath) {
-                    const built = processConstructPath(args[0] || [], args[1] || []);
-                    if (built) {
-                        currentPath = currentPath ? `${currentPath} ${built}` : built;
-                    }
-                } else if (fn === OPS.moveTo) {
-                    const [x, y] = applyPoint(args[0], args[1]);
-                    currentPath += `M ${x.toFixed(2)} ${y.toFixed(2)} `;
-                } else if (fn === OPS.lineTo) {
-                    const [x, y] = applyPoint(args[0], args[1]);
-                    currentPath += `L ${x.toFixed(2)} ${y.toFixed(2)} `;
-                } else if (fn === OPS.curveTo) {
-                    const [x1, y1] = applyPoint(args[0], args[1]);
-                    const [x2, y2] = applyPoint(args[2], args[3]);
-                    const [x3, y3] = applyPoint(args[4], args[5]);
-                    currentPath += `C ${x1.toFixed(2)} ${y1.toFixed(2)}, ${x2.toFixed(2)} ${y2.toFixed(2)}, ${x3.toFixed(2)} ${y3.toFixed(2)} `;
+                    lineWidth = Math.max(1, (args[0] || 1) * viewport.scale);
                 } else if (fn === OPS.rectangle) {
-                    const [x0, y0] = applyPoint(args[0], args[1]);
-                    const [x1, y1] = applyPoint(args[0] + args[2], args[1] + args[3]);
-                    const rx = Math.min(x0, x1);
-                    const ry = Math.min(y0, y1);
-                    const rw = Math.abs(x1 - x0);
-                    const rh = Math.abs(y1 - y0);
-                    currentPath += `M ${rx.toFixed(2)} ${ry.toFixed(2)} h ${rw.toFixed(2)} v ${rh.toFixed(2)} h ${(-rw).toFixed(2)} Z `;
-                } else if (fn === OPS.closePath) {
-                    currentPath += 'Z ';
-                } else if (fn === OPS.clip || fn === OPS.eoClip) {
-                    registerClipPath(currentPath.trim());
-                } else if (fn === OPS.fill || fn === OPS.eoFill) {
-                    appendPathEl(currentPath.trim(), fillColor, 'none', 0, fillAlpha, strokeAlpha, currentClipId);
-                    currentPath = '';
-                    pathBox = null;
+                    pathRects.push(toViewportRect(args[0], args[1], args[2], args[3]));
+                } else if (fn === OPS.constructPath) {
+                    const subOps = args[0] || [];
+                    const coords = args[1] || [];
+                    let ci = 0;
+                    for (let s = 0; s < subOps.length; s++) {
+                        const sub = subOps[s];
+                        if (sub === OPS.rectangle) {
+                            pathRects.push(toViewportRect(coords[ci], coords[ci + 1], coords[ci + 2], coords[ci + 3]));
+                            ci += 4;
+                        } else if (sub === OPS.moveTo) {
+                            curX = coords[ci];
+                            curY = coords[ci + 1];
+                            ci += 2;
+                        } else if (sub === OPS.lineTo) {
+                            const nx = coords[ci];
+                            const ny = coords[ci + 1];
+                            pathSegments.push({ x1: curX, y1: curY, x2: nx, y2: ny });
+                            curX = nx;
+                            curY = ny;
+                            ci += 2;
+                        }
+                    }
+                } else if (fn === OPS.fill || fn === OPS.eoFill || fn === OPS.fillStroke || fn === OPS.eoFillStroke) {
+                    const hasStroke = fn === OPS.fillStroke || fn === OPS.eoFillStroke;
+                    for (const r of pathRects) {
+                        if (r.width < 0.5 && r.height < 0.5) continue;
+                        if (r.width >= viewport.width * 0.98 && r.height >= viewport.height * 0.98 && fillColor === "rgb(255, 255, 255)") {
+                            continue;
+                        }
+                        const div = document.createElement("div");
+                        div.className = "pdf-shape";
+                        div.style.left = r.left.toFixed(1) + "px";
+                        div.style.top = r.top.toFixed(1) + "px";
+                        div.style.width = Math.max(1, r.width).toFixed(1) + "px";
+                        div.style.height = Math.max(1, r.height).toFixed(1) + "px";
+                        div.style.backgroundColor = fillColor;
+                        if (hasStroke) {
+                            div.style.border = Math.max(1, Math.round(lineWidth)) + "px solid " + strokeColor;
+                        }
+                        shapes.push(div);
+                    }
+                    pathRects = [];
+                    pathSegments = [];
                 } else if (fn === OPS.stroke) {
-                    appendPathEl(currentPath.trim(), 'none', strokeColor, lineWidth, fillAlpha, strokeAlpha, currentClipId);
-                    currentPath = '';
-                    pathBox = null;
-                } else if (fn === OPS.fillStroke || fn === OPS.eoFillStroke) {
-                    appendPathEl(currentPath.trim(), fillColor, strokeColor, lineWidth, fillAlpha, strokeAlpha, currentClipId);
-                    currentPath = '';
-                    pathBox = null;
+                    for (const r of pathRects) {
+                        const div = document.createElement("div");
+                        div.className = "pdf-shape";
+                        div.style.left = r.left.toFixed(1) + "px";
+                        div.style.top = r.top.toFixed(1) + "px";
+                        div.style.width = Math.max(1, r.width).toFixed(1) + "px";
+                        div.style.height = Math.max(1, r.height).toFixed(1) + "px";
+                        div.style.border = Math.max(1, Math.round(lineWidth)) + "px solid " + strokeColor;
+                        shapes.push(div);
+                    }
+                    for (const seg of pathSegments) {
+                        const m = multiplyMatrix(ctm, viewport.transform);
+                        const p1 = transformPoint(m, seg.x1, seg.y1);
+                        const p2 = transformPoint(m, seg.x2, seg.y2);
+                        const w = Math.abs(p2[0] - p1[0]);
+                        const h = Math.abs(p2[1] - p1[1]);
+                        if (w < 1.5 || h < 1.5) {
+                            const line = document.createElement("div");
+                            line.className = "pdf-shape";
+                            line.style.left = Math.min(p1[0], p2[0]).toFixed(1) + "px";
+                            line.style.top = Math.min(p1[1], p2[1]).toFixed(1) + "px";
+                            line.style.width = Math.max(1, w).toFixed(1) + "px";
+                            line.style.height = Math.max(1, h).toFixed(1) + "px";
+                            line.style.backgroundColor = strokeColor;
+                            shapes.push(line);
+                        }
+                    }
+                    pathRects = [];
+                    pathSegments = [];
                 } else if (fn === OPS.endPath) {
-                    currentPath = '';
-                    pathBox = null;
-                } else if (fn === OPS.showText || fn === OPS.showSpacedText) {
-                    const m = pdfjsLib.Util.transform(viewport.transform, ctm);
-                    textColorHints.push({
-                        x: m[4],
-                        y: m[5],
-                        color: fillColor
+                    pathRects = [];
+                    pathSegments = [];
+                }
+            }
+
+            return shapes;
+        }
+
+        function buildMergedHtmlTextNodes(textContent, viewport, searchQuery) {
+            const styles = textContent.styles || {};
+
+            const rawItems = textContent.items
+                .filter((item) => "str" in item && item.str.length > 0)
+                .map((item) => {
+                    const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
+                    const fontHeight = Math.hypot(tx[2], tx[3]) || Math.abs(tx[3]) || 12;
+                    const width = (item.width || 0) * viewport.scale;
+                    const styleInfo = styles[item.fontName] || {};
+                    const fontFamily = (styleInfo.fontFamily || item.fontName || "").toLowerCase();
+                    const isBold = /bold|black|heavy|700|800/i.test(fontFamily);
+                    const isMono = /mono|consolas|courier|code/i.test(fontFamily);
+
+                    return {
+                        str: item.str,
+                        left: tx[4],
+                        baselineY: tx[5],
+                        top: tx[5] - fontHeight * 0.86,
+                        fontHeight,
+                        width,
+                        isBold,
+                        isMono
+                    };
+                })
+                .sort((a, b) => {
+                    if (Math.abs(a.baselineY - b.baselineY) > 3) return a.baselineY - b.baselineY;
+                    return a.left - b.left;
+                });
+
+            const mergedRuns = [];
+            for (const item of rawItems) {
+                if (!item.str.trim() && mergedRuns.length) {
+                    mergedRuns[mergedRuns.length - 1].str += " ";
+                    mergedRuns[mergedRuns.length - 1].right += item.width || item.fontHeight * 0.3;
+                    continue;
+                }
+                if (!item.str.trim()) continue;
+
+                const prev = mergedRuns[mergedRuns.length - 1];
+                const sameRow = prev && Math.abs(prev.baselineY - item.baselineY) <= Math.max(3, item.fontHeight * 0.3);
+                const gap = prev ? item.left - prev.right : Infinity;
+                const isAdjacent = sameRow && gap >= -2 && gap <= Math.max(18, item.fontHeight * 1.4);
+
+                if (isAdjacent) {
+                    const needsSpace = gap > item.fontHeight * 0.18 && !prev.str.endsWith(" ") && !item.str.startsWith(" ");
+                    prev.str += (needsSpace ? " " : "") + item.str;
+                    prev.right = Math.max(prev.right, item.left + item.width);
+                    prev.fontHeight = Math.max(prev.fontHeight, item.fontHeight);
+                    prev.isBold = prev.isBold || item.isBold;
+                } else {
+                    mergedRuns.push({
+                        str: item.str,
+                        left: item.left,
+                        top: item.top,
+                        baselineY: item.baselineY,
+                        right: item.left + (item.width || item.str.length * item.fontHeight * 0.55),
+                        fontHeight: item.fontHeight,
+                        isBold: item.isBold,
+                        isMono: item.isMono
                     });
-                } else if (fn === OPS.paintImageXObject || fn === OPS.paintInlineImageXObject) {
-                    const imgName = fn === OPS.paintImageXObject ? args[0] : null;
-                    const src = await extractImageSrc(page, imgName, args);
-                    if (src) {
-                        const m = pdfjsLib.Util.transform(viewport.transform, ctm);
-                        const w = Math.max(1, Math.hypot(m[0], m[1]));
-                        const h = Math.max(1, Math.hypot(m[2], m[3]));
-                        const angleDeg = (Math.atan2(m[1], m[0]) * 180) / Math.PI;
-
-                        const imgEl = document.createElement('img');
-                        imgEl.className = 'pdf-image-node';
-                        imgEl.src = src;
-                        imgEl.alt = imgName || 'PDF image';
-                        imgEl.style.left = `${m[4].toFixed(2)}px`;
-                        imgEl.style.top = `${(m[5] - h).toFixed(2)}px`;
-                        imgEl.style.width = `${w.toFixed(2)}px`;
-                        imgEl.style.height = `${h.toFixed(2)}px`;
-                        if (currentTheme === 'dark') {
-                            imgEl.style.filter = 'brightness(0.92) contrast(1.03)';
-                        }
-                        if (Math.abs(angleDeg) > 0.1) {
-                            imgEl.style.transform = `rotate(${angleDeg.toFixed(2)}deg)`;
-                        }
-                        imageLayer.appendChild(imgEl);
-                    }
                 }
             }
 
-            return { svg, imageLayer, textColorHints, lightBgRects };
+            return mergedRuns.map((run) => {
+                const span = document.createElement("span");
+                span.className = "pdf-text-run" + (run.isBold ? " bold" : "") + (run.isMono ? " mono" : "");
+                span.style.left = run.left.toFixed(1) + "px";
+                span.style.top = run.top.toFixed(1) + "px";
+                span.style.fontSize = run.fontHeight.toFixed(1) + "px";
+                span.innerHTML = highlightText(run.str, searchQuery);
+                return span;
+            });
         }
 
-        function buildTextDomLayer(textContent, viewport, scale, textColorHints, lightBgRects) {
-            const textLayer = document.createElement('div');
-            textLayer.className = 'pdf-text-layer';
+        function preventSelectionOverlap(pageDiv) {
+            const runs = Array.from(pageDiv.querySelectorAll(".pdf-text-run"));
+            runs.sort((a, b) => {
+                const topDiff = parseFloat(a.style.top) - parseFloat(b.style.top);
+                if (Math.abs(topDiff) > 4) return topDiff;
+                return parseFloat(a.style.left) - parseFloat(b.style.left);
+            });
 
-            const measureCanvas = document.createElement('canvas');
-            const mctx = measureCanvas.getContext('2d');
+            for (let i = 1; i < runs.length; i++) {
+                const prev = runs[i - 1];
+                const curr = runs[i];
 
-            const items = textContent.items || [];
-            for (let i = 0; i < items.length; i++) {
-                const item = items[i];
-                if (!item.str) continue;
+                const prevTop = parseFloat(prev.style.top);
+                const currTop = parseFloat(curr.style.top);
+                const prevHeight = prev.offsetHeight || parseFloat(prev.style.fontSize);
 
-                const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
-                const fontHeight = Math.abs(tx[3]) || Math.hypot(tx[2], tx[3]) || Math.abs(item.height * scale) || 12;
-                const angleDeg = (Math.atan2(tx[1], tx[0]) * 180) / Math.PI;
-                const targetWidth = Math.abs((item.width || 0) * scale);
-
-                const span = document.createElement('span');
-                span.className = 'pdf-text-node';
-                span.textContent = item.str;
-                span.style.left = `${tx[4].toFixed(2)}px`;
-                span.style.top = `${(tx[5] - fontHeight * 0.88).toFixed(2)}px`;
-                span.style.fontSize = `${fontHeight.toFixed(2)}px`;
-                span.style.fontFamily = NANUM_FONT;
-
-                let bestColor = null;
-                let bestDist = Infinity;
-                for (const hint of textColorHints) {
-                    const d = Math.hypot(hint.x - tx[4], hint.y - tx[5]);
-                    if (d < bestDist && d < fontHeight * 3.0) {
-                        bestDist = d;
-                        bestColor = hint.color;
+                if (Math.abs(currTop - prevTop) < prevHeight * 0.6) {
+                    const prevRight = parseFloat(prev.style.left) + prev.offsetWidth;
+                    const currLeft = parseFloat(curr.style.left);
+                    if (currLeft < prevRight + 2) {
+                        curr.style.left = (prevRight + 2).toFixed(1) + "px";
                     }
                 }
-                span.style.color = adaptTextColorForTheme(bestColor, tx[4], tx[5], lightBgRects);
-
-                if (targetWidth > 0 && item.str.length > 1) {
-                    mctx.font = `${fontHeight.toFixed(2)}px ${NANUM_FONT}`;
-                    const measuredWidth = mctx.measureText(item.str).width;
-                    if (measuredWidth > 0) {
-                        const perGap = (targetWidth - measuredWidth) / (item.str.length - 1);
-                        if (perGap >= -0.8 && perGap <= 1.5) {
-                            span.style.letterSpacing = `${perGap.toFixed(2)}px`;
-                        }
-                    }
-                }
-
-                if (Math.abs(angleDeg) > 0.1) {
-                    span.style.transform = `rotate(${angleDeg.toFixed(2)}deg)`;
-                }
-
-                textLayer.appendChild(span);
-            }
-
-            return textLayer;
-        }
-
-        async function renderAllPages() {
-            if (!pdfDoc || isRendering) return;
-            isRendering = true;
-
-            const activePage = parseInt(pageNumInput.value, 10) || 1;
-            deviceFrame.innerHTML = '';
-
-            try {
-                for (let num = 1; num <= pdfDoc.numPages; num++) {
-                    const page = await pdfDoc.getPage(num);
-                    const scale = await computeFitScale(page);
-                    const viewport = page.getViewport({ scale });
-
-                    const pageEl = document.createElement('section');
-                    pageEl.className = 'pdf-html-page';
-                    pageEl.dataset.pageNumber = num;
-                    pageEl.style.width = `${viewport.width}px`;
-                    pageEl.style.height = `${viewport.height}px`;
-
-                    const opList = await page.getOperatorList();
-                    const textContent = await page.getTextContent();
-
-                    const { svg, imageLayer, textColorHints, lightBgRects } = await parsePageGraphics(
-                        page,
-                        opList,
-                        viewport,
-                        scale,
-                        num
-                    );
-
-                    const vectorWrapper = document.createElement('div');
-                    vectorWrapper.className = 'pdf-vector-layer';
-                    vectorWrapper.appendChild(svg);
-
-                    const textLayer = buildTextDomLayer(
-                        textContent,
-                        viewport,
-                        scale,
-                        textColorHints,
-                        lightBgRects
-                    );
-
-                    pageEl.appendChild(vectorWrapper);
-                    pageEl.appendChild(imageLayer);
-                    pageEl.appendChild(textLayer);
-                    deviceFrame.appendChild(pageEl);
-                }
-
-                if (activePage > 1) {
-                    scrollToPage(activePage, 'auto');
-                }
-            } finally {
-                isRendering = false;
             }
         }
 
-        function setTheme(theme) {
-            currentTheme = theme;
-            document.documentElement.setAttribute('data-theme', theme);
-            if (theme === 'dark') {
-                themeToggleBtn.textContent = '라이트 모드';
-                themeToggleBtn.classList.add('active');
+        async function extractAllText(pdfDoc) {
+            const texts = [];
+            for (let i = 1; i <= pdfDoc.numPages; i++) {
+                const page = await pdfDoc.getPage(i);
+                const content = await page.getTextContent();
+                const text = content.items
+                    .filter((item) => "str" in item)
+                    .map((item) => item.str)
+                    .join(" ")
+                    .replace(/\s+/g, " ")
+                    .trim();
+                texts.push({ pageNo: i, text });
+            }
+            state.pagesText = texts;
+        }
+
+        async function renderPureHtmlPage(num) {
+            if (!state.pdfDoc) return;
+            state.rendering = true;
+
+            const query = el.searchInput.value.trim();
+            const page = await state.pdfDoc.getPage(num);
+            const stageInnerWidth = Math.max(300, el.stage.clientWidth - 34);
+            const unscaledViewport = page.getViewport({ scale: 1 });
+            const scale = Math.max(0.45, Math.min(1.8, stageInnerWidth / unscaledViewport.width));
+            const viewport = page.getViewport({ scale });
+
+            const pageDiv = document.createElement("div");
+            pageDiv.className = "rendered-html-page";
+            pageDiv.dataset.pageNo = String(num);
+            pageDiv.style.width = Math.floor(viewport.width) + "px";
+            pageDiv.style.height = Math.floor(viewport.height) + "px";
+
+            const results = await Promise.all([
+                page.getOperatorList(),
+                page.getTextContent()
+            ]);
+            const opList = results[0];
+            const textContent = results[1];
+
+            const shapeElements = extractVectorShapesAsHtml(opList, viewport);
+            shapeElements.forEach((shape) => pageDiv.appendChild(shape));
+
+            const textElements = buildMergedHtmlTextNodes(textContent, viewport, query);
+            textElements.forEach((node) => pageDiv.appendChild(node));
+
+            el.pageHost.innerHTML = "";
+            el.pageHost.appendChild(pageDiv);
+            showPageContainer();
+
+            preventSelectionOverlap(pageDiv);
+
+            el.htmlSourceArea.value = pageDiv.outerHTML;
+            state.pageNum = num;
+            state.rendering = false;
+            updatePager();
+
+            if (state.pendingPage !== null) {
+                const next = state.pendingPage;
+                state.pendingPage = null;
+                renderPureHtmlPage(next);
+            }
+        }
+
+        function queueRenderPage(num) {
+            if (state.rendering) {
+                state.pendingPage = num;
             } else {
-                themeToggleBtn.textContent = '다크 모드';
-                themeToggleBtn.classList.remove('active');
-            }
-
-            if (pdfDoc) {
-                renderAllPages();
+                renderPureHtmlPage(num);
             }
         }
 
-        function setDevice(device) {
-            currentDevice = device;
-            deviceFrame.className = `device-frame preset-${device}`;
+        function runSearch() {
+            const rawQ = el.searchInput.value.trim();
+            const q = rawQ.toLowerCase();
+            el.hitsBox.innerHTML = "";
 
-            const labelMap = {
-                pc: 'PC (화면최적화)',
-                tablet: '탭',
-                mobile: '스마트폰'
-            };
-            currentDeviceLabel.textContent = labelMap[device] || 'PC (화면최적화)';
+            if (state.pdfDoc && !state.rendering) {
+                queueRenderPage(state.pageNum);
+            }
 
-            dockOptions.forEach(opt => {
-                const isSelected = opt.dataset.device === device;
-                opt.classList.toggle('active', isSelected);
-                if (isSelected) {
-                    const svgEl = opt.querySelector('svg');
-                    if (svgEl) {
-                        dockActiveIcon.innerHTML = svgEl.innerHTML;
-                    }
-                }
+            if (!q || !state.pagesText.length) return;
+
+            const matched = state.pagesText.filter((p) => p.text.toLowerCase().includes(q));
+            if (!matched.length) {
+                el.hitsBox.innerHTML = "<span>\"" + escapeHtml(rawQ) + "\" 일치 페이지 없음</span>";
+                return;
+            }
+
+            matched.forEach((m) => {
+                const btn = document.createElement("button");
+                btn.type = "button";
+                btn.className = "hit-btn";
+                btn.textContent = m.pageNo + "페이지 이동";
+                btn.addEventListener("click", () => queueRenderPage(m.pageNo));
+                el.hitsBox.appendChild(btn);
             });
-
-            deviceDock.classList.remove('open');
-
-            if (pdfDoc) {
-                renderAllPages();
-            }
         }
 
-        async function loadPdfFromPath(pdfPath) {
-            const displayName = decodeURIComponent(pdfPath.split('/').pop().split('?')[0] || 'document.pdf');
+        async function loadFromDocumentSource(source, displayLabel) {
+            state.pdfDoc = null;
+            state.docTitle = displayLabel.split("/").pop().replace(/\.pdf$/i, "") || "converted";
+            state.totalPages = 0;
+            state.pageNum = 1;
+            state.pagesText = [];
+            el.hitsBox.innerHTML = "";
+            updatePager();
+            setStatus("PDF → 순수 HTML DOM 변환 중... (<code>" + escapeHtml(displayLabel) + "</code>)");
+
+            const loadedDoc = await pdfjsLib.getDocument(source).promise;
+            state.pdfDoc = loadedDoc;
+            state.totalPages = loadedDoc.numPages;
+            state.pageNum = 1;
+            updatePager();
+
+            await extractAllText(loadedDoc);
+            await renderPureHtmlPage(1);
+            if (el.searchInput.value.trim()) runSearch();
+        }
+
+        async function loadPdfByPath(rawPath, shouldSyncUrl) {
+            if (shouldSyncUrl === undefined) shouldSyncUrl = true;
+            const targetPath = rawPath.trim();
+            if (!targetPath) {
+                setStatus("상단 입력창에 PDF 경로 또는 URL을 입력해주세요.<br />예시: <code>/.pdf/md_to_pdf.pdf</code>");
+                return;
+            }
+
+            el.pathInput.value = targetPath;
+            if (shouldSyncUrl) syncUrlParam(targetPath);
+
+            const primaryUrl = resolvePdfUrl(targetPath);
+            const fallbackUrl = !targetPath.startsWith("http")
+                ? new URL(targetPath.replace(/^\/+/, ""), window.location.href).href
+                : null;
+
             try {
-                statusMessage.style.display = 'block';
-                statusMessage.innerHTML = '<p>PDF를 HTML로 불러오는 중입니다...</p>';
-                fileNameEl.textContent = displayName;
-                fileNameEl.title = pdfPath;
-                document.title = `${displayName} - PDF HTML Viewer`;
-
-                const loadingTask = pdfjsLib.getDocument(pdfPath);
-                pdfDoc = await loadingTask.promise;
-
-                statusMessage.style.display = 'none';
-                enableControls(pdfDoc.numPages);
-                await renderAllPages();
+                try {
+                    await loadFromDocumentSource(primaryUrl, targetPath);
+                } catch (firstErr) {
+                    if (!fallbackUrl || fallbackUrl === primaryUrl) throw firstErr;
+                    await loadFromDocumentSource(fallbackUrl, targetPath);
+                }
             } catch (err) {
-                console.error(err);
-                statusMessage.style.display = 'block';
-                statusMessage.innerHTML = `
-          <p style="color: #d92d20;">PDF를 불러오는 데 실패했습니다.</p>
-          <p style="font-size: 0.85rem; margin-top: 6px;"><code>${pdfPath}</code> 경로를 확인해주세요.<br>(${err.message})</p>
-        `;
+                setStatus(
+                    "PDF 로드 실패: <code>" + escapeHtml(targetPath) + "</code><br />" +
+                    "경로 존재 여부 및 CORS 허용 여부를 확인해주세요.<br />" +
+                    "<small>" + escapeHtml(err && err.message ? err.message : String(err)) + "</small>"
+                );
             }
         }
 
-        function scrollToPage(num, behavior = 'smooth') {
-            const target = deviceFrame.querySelector(`.pdf-html-page[data-page-number="${num}"]`);
-            if (target) {
-                target.scrollIntoView({ behavior, block: 'start' });
-                pageNumInput.value = num;
-            }
+        function buildStandaloneHtmlDocument() {
+            const bodyMarkup = el.htmlSourceArea.value;
+            const docOpen = [
+                "<!DOCTYPE html>",
+                '<html lang="ko">',
+                "<head>",
+                '<meta charset="UTF-8" />',
+                "<title>" + escapeHtml(state.docTitle) + " - Page " + state.pageNum + "<" + "/title>",
+                "<style>",
+                "  body { margin: 24px; background: #f1f5f9; font-family: 'Pretendard', 'Malgun Gothic', sans-serif; display: flex; justify-content: center; }",
+                "  .rendered-html-page { position: relative; background: #fff; color: #111827; box-shadow: 0 4px 20px rgba(0,0,0,.08); overflow: hidden; user-select: none; }",
+                "  .pdf-shape { position: absolute; pointer-events: none; user-select: none; }",
+                "  .pdf-text-run { position: absolute; white-space: pre; line-height: 1; letter-spacing: -0.02em; user-select: text; }",
+                "  .pdf-text-run::selection { background: #bfdbfe; color: #111827; }",
+                "  .pdf-text-run.bold { font-weight: 700; }",
+                "  .pdf-text-run.mono { font-family: Consolas, monospace; background: rgba(15,23,42,.05); border-radius: 2px; }",
+                "<" + "/style>",
+                "<" + "/head>",
+                "<body>"
+            ].join("\n");
+
+            const docClose = "\n<" + "/body>\n<" + "/html>";
+            return docOpen + "\n" + bodyMarkup + docClose;
         }
 
-        themeToggleBtn.addEventListener('click', () => {
-            setTheme(currentTheme === 'light' ? 'dark' : 'light');
+        el.pathForm.addEventListener("submit", (e) => {
+            e.preventDefault();
+            loadPdfByPath(el.pathInput.value, true);
         });
 
-        dockTrigger.addEventListener('click', (e) => {
-            e.stopPropagation();
-            deviceDock.classList.toggle('open');
+        el.fileInput.addEventListener("change", async (e) => {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+            el.pathInput.value = file.name;
+            syncUrlParam("");
+            try {
+                const buffer = await file.arrayBuffer();
+                await loadFromDocumentSource({ data: buffer }, file.name);
+            } catch (err) {
+                setStatus("로컬 PDF 로드 실패: <small>" + escapeHtml(err && err.message ? err.message : String(err)) + "</small>");
+            }
         });
 
-        dockOptions.forEach(opt => {
-            opt.addEventListener('click', (e) => {
-                e.stopPropagation();
-                setDevice(opt.dataset.device);
+        el.copyHtmlBtn.addEventListener("click", async () => {
+            if (!el.htmlSourceArea.value) return;
+            await navigator.clipboard.writeText(buildStandaloneHtmlDocument());
+            const orig = el.copyHtmlBtn.textContent;
+            el.copyHtmlBtn.textContent = "복사됨!";
+            setTimeout(() => { el.copyHtmlBtn.textContent = orig; }, 1200);
+        });
+
+        el.downloadHtmlBtn.addEventListener("click", () => {
+            if (!el.htmlSourceArea.value) return;
+            const blob = new Blob([buildStandaloneHtmlDocument()], { type: "text/html;charset=utf-8" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = state.docTitle + "_p" + state.pageNum + ".html";
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        el.prevBtn.addEventListener("click", () => {
+            if (state.pageNum > 1) queueRenderPage(state.pageNum - 1);
+        });
+
+        el.nextBtn.addEventListener("click", () => {
+            if (state.pageNum < state.totalPages) queueRenderPage(state.pageNum + 1);
+        });
+
+        el.themeBtn.addEventListener("click", () => {
+            document.body.classList.toggle("dark");
+        });
+
+        document.querySelectorAll("button[data-width]").forEach((btn) => {
+            btn.addEventListener("click", () => {
+                document.querySelectorAll("button[data-width]").forEach((b) => b.classList.remove("active"));
+                btn.classList.add("active");
+                document.documentElement.style.setProperty("--stage-width", btn.dataset.width);
+                if (state.pdfDoc) queueRenderPage(state.pageNum);
             });
         });
 
-        document.addEventListener('click', () => {
-            deviceDock.classList.remove('open');
+        el.searchInput.addEventListener("input", runSearch);
+        el.clearSearchBtn.addEventListener("click", () => {
+            el.searchInput.value = "";
+            runSearch();
         });
 
-        viewerContainer.addEventListener('scroll', () => {
-            const pages = document.querySelectorAll('.pdf-html-page');
-            const containerTop = viewerContainer.getBoundingClientRect().top;
-
-            for (const page of pages) {
-                const rect = page.getBoundingClientRect();
-                if (rect.top <= containerTop + 150 && rect.bottom >= containerTop + 150) {
-                    pageNumInput.value = page.dataset.pageNumber;
-                    break;
-                }
-            }
-        });
-
-        prevBtn.addEventListener('click', () => {
-            const current = parseInt(pageNumInput.value, 10);
-            if (current > 1) scrollToPage(current - 1);
-        });
-
-        nextBtn.addEventListener('click', () => {
-            const current = parseInt(pageNumInput.value, 10);
-            if (pdfDoc && current < pdfDoc.numPages) scrollToPage(current + 1);
-        });
-
-        pageNumInput.addEventListener('change', () => {
-            if (!pdfDoc) return;
-            let val = parseInt(pageNumInput.value, 10);
-            if (isNaN(val) || val < 1) val = 1;
-            if (val > pdfDoc.numPages) val = pdfDoc.numPages;
-            scrollToPage(val);
-        });
-
-        refitBtn.addEventListener('click', () => {
-            if (pdfDoc) renderAllPages();
-        });
-
-        window.addEventListener('resize', () => {
-            if (!pdfDoc) return;
-            clearTimeout(resizeTimer);
-            resizeTimer = setTimeout(() => {
-                renderAllPages();
-            }, 150);
-        });
-
-        window.addEventListener('DOMContentLoaded', () => {
-            const pdfPath = getPathParam();
-            if (pdfPath) {
-                loadPdfFromPath(pdfPath);
+        window.addEventListener("DOMContentLoaded", () => {
+            const initialPath = getTargetPathFromUrl();
+            if (initialPath) {
+                loadPdfByPath(initialPath, false);
             }
         });
     </script>
