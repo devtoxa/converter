@@ -111,7 +111,7 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 20px 14px 96px;
+            padding: 16px 12px 96px;
             position: relative;
         }
 
@@ -130,8 +130,8 @@
         }
 
         .device-frame.preset-tablet {
-            max-width: 720px;
-            padding: 14px;
+            max-width: 640px;
+            padding: 12px;
             border: 1px solid #2e2e2e;
             border-radius: 14px;
             background-color: #161616;
@@ -139,7 +139,7 @@
         }
 
         .device-frame.preset-mobile {
-            max-width: 336px;
+            max-width: 312px;
             padding: 10px 8px;
             border: 1px solid #2e2e2e;
             border-radius: 20px;
@@ -191,18 +191,12 @@
             font-family: var(--font-nanum);
         }
 
-        .pdf-text-group {
+        .pdf-text-node {
             position: absolute;
             white-space: pre;
             transform-origin: left bottom;
             line-height: 1;
             cursor: text;
-            font-family: var(--font-nanum);
-        }
-
-        .pdf-text-run {
-            display: inline-block;
-            white-space: pre;
             font-family: var(--font-nanum);
         }
 
@@ -317,7 +311,7 @@
         </div>
 
         <div class="toolbar-group">
-            <span class="device-label" id="current-device-label">화면: PC</span>
+            <span class="device-label" id="current-device-label">PC (화면최적화)</span>
             <button id="refit-btn" disabled>화면 맞춤</button>
         </div>
     </header>
@@ -326,16 +320,15 @@
         <div id="status-message">
             <p>URL에 <code>?path=...</code> 파라미터를 지정해주세요.</p>
             <p style="margin-top: 8px; font-size: 0.85rem;">
-                예시: <code>?path=/.pdf/md_to_pdf.pdf</code>
+                예시: <code>?path=/.pdf/ont-hot_coding.pdf</code>
             </p>
         </div>
 
         <div id="device-frame" class="device-frame preset-pc"></div>
     </main>
 
-    <!-- 화면 하단 드롭 아이콘 메뉴 -->
     <div id="device-dock" class="device-dock">
-        <button id="dock-trigger" class="dock-trigger" title="화면 크기 선택 (PC / 태블릿 / 모바일)" aria-label="화면 크기 선택">
+        <button id="dock-trigger" class="dock-trigger" title="화면 모드 선택 (PC / 탭 / 스마트폰)" aria-label="화면 모드 선택">
             <svg id="dock-active-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                 stroke-linecap="round" stroke-linejoin="round">
                 <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
@@ -352,7 +345,7 @@
                     <line x1="8" y1="21" x2="16" y2="21"></line>
                     <line x1="12" y1="17" x2="12" y2="21"></line>
                 </svg>
-                <span>PC</span>
+                <span>PC (화면최적화)</span>
             </button>
             <button class="dock-option" data-device="tablet" role="menuitem">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
@@ -360,7 +353,7 @@
                     <rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect>
                     <line x1="12" y1="18" x2="12.01" y2="18"></line>
                 </svg>
-                <span>태블릿</span>
+                <span>탭</span>
             </button>
             <button class="dock-option" data-device="mobile" role="menuitem">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
@@ -368,7 +361,7 @@
                     <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
                     <line x1="12" y1="18" x2="12.01" y2="18"></line>
                 </svg>
-                <span>모바일</span>
+                <span>스마트폰</span>
             </button>
         </div>
     </div>
@@ -381,7 +374,7 @@
         const NANUM_FONT = "'Nanum Gothic', 'Malgun Gothic', sans-serif";
 
         let pdfDoc = null;
-        let currentDevice = 'pc'; // 'pc' | 'tablet' | 'mobile'
+        let currentDevice = 'pc';
         let isRendering = false;
         let resizeTimer = null;
 
@@ -421,69 +414,48 @@
             let targetWidth;
 
             if (currentDevice === 'mobile') {
-                targetWidth = Math.min(336, viewerContainer.clientWidth - 20) - 16;
+                targetWidth = Math.min(312, viewerContainer.clientWidth - 16) - 16;
             } else if (currentDevice === 'tablet') {
-                targetWidth = Math.min(720, viewerContainer.clientWidth - 28) - 28;
+                targetWidth = Math.min(640, viewerContainer.clientWidth - 20) - 24;
             } else {
-                targetWidth = viewerContainer.clientWidth - 36;
+                targetWidth = viewerContainer.clientWidth - 24;
             }
 
-            targetWidth = Math.max(220, targetWidth);
+            targetWidth = Math.max(200, targetWidth);
             return targetWidth / unscaledViewport.width;
         }
 
-        function classifyChar(ch) {
-            if (/\s/.test(ch)) return 'space';
-            if (/[\uAC00-\uD7A3\u1100-\u11FF\u3130-\u318F]/.test(ch)) return 'hangul';
-            if (/[A-Za-z0-9]/.test(ch)) return 'latinNum';
-            return 'symbol';
-        }
-
-        function splitByCharTypeRuns(text) {
-            if (!text) return [];
-            const runs = [];
-            let currentType = classifyChar(text[0]);
-            let currentStr = text[0];
-
-            for (let i = 1; i < text.length; i++) {
-                const ch = text[i];
-                const t = classifyChar(ch);
-                if (t === currentType) {
-                    currentStr += ch;
-                } else {
-                    runs.push({ type: currentType, text: currentStr });
-                    currentType = t;
-                    currentStr = ch;
-                }
+        function colorArgsToCss(args) {
+            if (!Array.isArray(args) || args.length === 0) return null;
+            if (args.length === 1) {
+                const g = Number(args[0]);
+                if (Number.isNaN(g)) return null;
+                const norm = g > 1 ? g / 255 : g;
+                const v = Math.round(Math.max(0, Math.min(1, norm)) * 255);
+                return `rgb(${v}, ${v}, ${v})`;
             }
-            runs.push({ type: currentType, text: currentStr });
-            return runs;
-        }
-
-        function normalizeRgbArgs(args) {
-            if (!args || args.length < 3) return 'rgb(0, 0, 0)';
-            const scaleVal = (args[0] <= 1 && args[1] <= 1 && args[2] <= 1) ? 255 : 1;
-            const r = Math.round(Math.max(0, Math.min(255, args[0] * scaleVal)));
-            const g = Math.round(Math.max(0, Math.min(255, args[1] * scaleVal)));
-            const b = Math.round(Math.max(0, Math.min(255, args[2] * scaleVal)));
-            return `rgb(${r}, ${g}, ${b})`;
-        }
-
-        function grayToRgb(g) {
-            const norm = g > 1 ? g / 255 : g;
-            const v = Math.round(Math.max(0, Math.min(1, norm)) * 255);
-            return `rgb(${v}, ${v}, ${v})`;
-        }
-
-        function cmykToRgb(c, m, y, k) {
-            const cn = c > 1 ? c / 255 : c;
-            const mn = m > 1 ? m / 255 : m;
-            const yn = y > 1 ? y / 255 : y;
-            const kn = k > 1 ? k / 255 : k;
-            const r = Math.round(255 * (1 - cn) * (1 - kn));
-            const g = Math.round(255 * (1 - mn) * (1 - kn));
-            const b = Math.round(255 * (1 - yn) * (1 - kn));
-            return `rgb(${r}, ${g}, ${b})`;
+            if (args.length === 3) {
+                const nums = args.slice(0, 3).map(Number);
+                if (nums.some(Number.isNaN)) return null;
+                const mult = (nums[0] <= 1 && nums[1] <= 1 && nums[2] <= 1) ? 255 : 1;
+                const r = Math.round(Math.max(0, Math.min(255, nums[0] * mult)));
+                const g = Math.round(Math.max(0, Math.min(255, nums[1] * mult)));
+                const b = Math.round(Math.max(0, Math.min(255, nums[2] * mult)));
+                return `rgb(${r}, ${g}, ${b})`;
+            }
+            if (args.length >= 4) {
+                const nums = args.slice(0, 4).map(Number);
+                if (nums.some(Number.isNaN)) return null;
+                const c = nums[0] > 1 ? nums[0] / 255 : nums[0];
+                const m = nums[1] > 1 ? nums[1] / 255 : nums[1];
+                const y = nums[2] > 1 ? nums[2] / 255 : nums[2];
+                const k = nums[3] > 1 ? nums[3] / 255 : nums[3];
+                const r = Math.round(255 * (1 - c) * (1 - k));
+                const g = Math.round(255 * (1 - m) * (1 - k));
+                const b = Math.round(255 * (1 - y) * (1 - k));
+                return `rgb(${r}, ${g}, ${b})`;
+            }
+            return null;
         }
 
         async function extractImageSrc(page, imgName, args) {
@@ -566,7 +538,6 @@
             return null;
         }
 
-        // PDF 벡터 경로/사각형(OPS.constructPath 포함), 클리핑, 색상, 이미지 파싱
         async function parsePageGraphics(page, opList, viewport, scale, pageIndex) {
             const svgNS = 'http://www.w3.org/2000/svg';
             const svg = document.createElementNS(svgNS, 'svg');
@@ -610,7 +581,7 @@
                 }
                 pathEl.setAttribute('stroke', stroke || 'none');
                 if (stroke && stroke !== 'none') {
-                    pathEl.setAttribute('stroke-width', Math.max(0.6, width).toFixed(2));
+                    pathEl.setAttribute('stroke-width', Math.max(0.65, width).toFixed(2));
                     if (sAlpha < 1) {
                         pathEl.setAttribute('stroke-opacity', sAlpha.toFixed(3));
                     }
@@ -634,7 +605,6 @@
                 currentClipId = id;
             }
 
-            // 배치 경로(OPS.constructPath) 처리
             function processConstructPath(subOps, coords) {
                 let cIdx = 0;
                 let pathStr = '';
@@ -693,28 +663,28 @@
                         if (key === 'ca' && typeof val === 'number') fillAlpha = val;
                         if (key === 'CA' && typeof val === 'number') strokeAlpha = val;
                     }
-                } else if (fn === OPS.setFillRGBColor) {
-                    fillColor = normalizeRgbArgs(args);
-                } else if (fn === OPS.setStrokeRGBColor) {
-                    strokeColor = normalizeRgbArgs(args);
-                } else if (fn === OPS.setFillGray) {
-                    fillColor = grayToRgb(args[0]);
-                } else if (fn === OPS.setStrokeGray) {
-                    strokeColor = grayToRgb(args[0]);
-                } else if (fn === OPS.setFillCMYKColor) {
-                    fillColor = cmykToRgb(args[0], args[1], args[2], args[3]);
-                } else if (fn === OPS.setStrokeCMYKColor) {
-                    strokeColor = cmykToRgb(args[0], args[1], args[2], args[3]);
+                } else if (
+                    fn === OPS.setFillRGBColor ||
+                    fn === OPS.setFillGray ||
+                    fn === OPS.setFillCMYKColor ||
+                    fn === OPS.setFillColorN
+                ) {
+                    const c = colorArgsToCss(args);
+                    if (c) fillColor = c;
+                } else if (
+                    fn === OPS.setStrokeRGBColor ||
+                    fn === OPS.setStrokeGray ||
+                    fn === OPS.setStrokeCMYKColor ||
+                    fn === OPS.setStrokeColorN
+                ) {
+                    const c = colorArgsToCss(args);
+                    if (c) strokeColor = c;
                 } else if (fn === OPS.setLineWidth) {
                     lineWidth = (args[0] || 1) * scale;
                 } else if (fn === OPS.constructPath) {
                     const built = processConstructPath(args[0] || [], args[1] || []);
                     if (built) {
                         currentPath = currentPath ? `${currentPath} ${built}` : built;
-                    }
-                    const minX = args[2] ? args[2][0] : null;
-                    if (typeof minX === 'number' && args[2].length >= 4) {
-                        // minMax 영역이 함께 넘어오는 경우(일부 PDF.js 버전)
                     }
                 } else if (fn === OPS.moveTo) {
                     const [x, y] = applyPoint(args[0], args[1]);
@@ -785,6 +755,7 @@
             return { svg, imageLayer, textColorHints };
         }
 
+        // 일그러짐 없이 기준선(baseline)과 부드러운 자간만 적용해 텍스트 렌더링
         function buildTextDomLayer(textContent, viewport, scale, textColorHints) {
             const textLayer = document.createElement('div');
             textLayer.className = 'pdf-text-layer';
@@ -798,18 +769,20 @@
                 if (!item.str) continue;
 
                 const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
-                const fontHeight = Math.hypot(tx[2], tx[3]) || Math.abs(item.height * scale) || 12;
+                // 세로 스케일(tx[3]) 기준으로 폰트 크기를 잡아 가로 찌그러짐 방지
+                const fontHeight = Math.abs(tx[3]) || Math.hypot(tx[2], tx[3]) || Math.abs(item.height * scale) || 12;
                 const angleDeg = (Math.atan2(tx[1], tx[0]) * 180) / Math.PI;
-                const totalTargetWidth = Math.abs((item.width || 0) * scale);
+                const targetWidth = Math.abs((item.width || 0) * scale);
 
-                const groupEl = document.createElement('span');
-                groupEl.className = 'pdf-text-group';
-                groupEl.style.left = `${tx[4].toFixed(2)}px`;
-                groupEl.style.top = `${(tx[5] - fontHeight).toFixed(2)}px`;
-                groupEl.style.fontSize = `${fontHeight.toFixed(2)}px`;
-                groupEl.style.fontFamily = NANUM_FONT;
+                const span = document.createElement('span');
+                span.className = 'pdf-text-node';
+                span.textContent = item.str;
+                span.style.left = `${tx[4].toFixed(2)}px`;
+                // 나눔고딕 상단/하단 여백 차이를 보정해 PDF 베이스라인(tx[5])에 맞춤
+                span.style.top = `${(tx[5] - fontHeight * 0.88).toFixed(2)}px`;
+                span.style.fontSize = `${fontHeight.toFixed(2)}px`;
+                span.style.fontFamily = NANUM_FONT;
 
-                // 글자 색상 매칭 (가까운 showText/showSpacedText 채우기 색상 우선)
                 let bestColor = null;
                 let bestDist = Infinity;
                 for (const hint of textColorHints) {
@@ -820,52 +793,26 @@
                     }
                 }
                 if (bestColor) {
-                    groupEl.style.color = bestColor;
+                    span.style.color = bestColor;
                 }
 
-                const runs = splitByCharTypeRuns(item.str);
-                mctx.font = `${fontHeight.toFixed(2)}px ${NANUM_FONT}`;
-
-                const measuredWidths = runs.map(r => mctx.measureText(r.text).width);
-                const sumMeasured = measuredWidths.reduce((acc, w) => acc + w, 0);
-
-                for (let rIdx = 0; rIdx < runs.length; rIdx++) {
-                    const run = runs[rIdx];
-                    const runEl = document.createElement('span');
-                    runEl.className = 'pdf-text-run';
-                    runEl.textContent = run.text;
-
-                    const mWidth = measuredWidths[rIdx];
-                    if (totalTargetWidth > 0 && sumMeasured > 0 && mWidth > 0 && run.type !== 'space') {
-                        const targetRunWidth = totalTargetWidth * (mWidth / sumMeasured);
-                        const diffPx = targetRunWidth - mWidth;
-
-                        if (run.text.length > 1) {
-                            const perGap = diffPx / (run.text.length - 1);
-                            if (perGap >= -1.2 && perGap <= 2.2) {
-                                runEl.style.letterSpacing = `${perGap.toFixed(2)}px`;
-                            } else {
-                                const scaleX = Math.max(0.7, Math.min(1.45, targetRunWidth / mWidth));
-                                runEl.style.transformOrigin = 'left center';
-                                runEl.style.transform = `scaleX(${scaleX.toFixed(3)})`;
-                            }
-                        } else if (run.type === 'symbol') {
-                            const sidePad = Math.max(-1.2, Math.min(2.0, diffPx / 2));
-                            if (Math.abs(sidePad) > 0.15) {
-                                runEl.style.marginLeft = `${sidePad.toFixed(2)}px`;
-                                runEl.style.marginRight = `${sidePad.toFixed(2)}px`;
-                            }
+                // 과도한 scaleX 왜곡을 피하고 작은 자간 차이만 미세 조정
+                if (targetWidth > 0 && item.str.length > 1) {
+                    mctx.font = `${fontHeight.toFixed(2)}px ${NANUM_FONT}`;
+                    const measuredWidth = mctx.measureText(item.str).width;
+                    if (measuredWidth > 0) {
+                        const perGap = (targetWidth - measuredWidth) / (item.str.length - 1);
+                        if (perGap >= -0.8 && perGap <= 1.5) {
+                            span.style.letterSpacing = `${perGap.toFixed(2)}px`;
                         }
                     }
-
-                    groupEl.appendChild(runEl);
                 }
 
                 if (Math.abs(angleDeg) > 0.1) {
-                    groupEl.style.transform = `rotate(${angleDeg.toFixed(2)}deg)`;
+                    span.style.transform = `rotate(${angleDeg.toFixed(2)}deg)`;
                 }
 
-                textLayer.appendChild(groupEl);
+                textLayer.appendChild(span);
             }
 
             return textLayer;
@@ -931,11 +878,11 @@
             deviceFrame.className = `device-frame preset-${device}`;
 
             const labelMap = {
-                pc: '화면: PC',
-                tablet: '화면: 태블릿',
-                mobile: '화면: 모바일'
+                pc: 'PC (화면최적화)',
+                tablet: '탭',
+                mobile: '스마트폰'
             };
-            currentDeviceLabel.textContent = labelMap[device] || '화면: PC';
+            currentDeviceLabel.textContent = labelMap[device] || 'PC (화면최적화)';
 
             dockOptions.forEach(opt => {
                 const isSelected = opt.dataset.device === device;
